@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 
-from agent.runtime.loop import agent_loop, response_to_text
+from pathlib import Path
+from agent.runtime.loop import response_to_text
+from agent.runtime.agent.agent import Agent, AgentConfig
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -18,24 +20,36 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run_once(prompt: str, max_tokens: int) -> None:
+    cli_agent = Agent(
+        AgentConfig(
+            workspace=Path.cwd(),
+            max_tokens=max_tokens,
+        )
+    )
     messages = [{"role": "user", "content": prompt}]
-    response = agent_loop(messages, max_tokens=max_tokens)
+    response = cli_agent.run(messages)
     print(response_to_text(response))
 
 
 def run_chat(max_tokens: int) -> None:
     print("MiniMax CLI chat ready. Type 'exit' or 'quit' to stop.")
-    messages: list[dict] = []
+    messages = []
+    cli_agent = Agent(
+        AgentConfig(
+            workspace=Path.cwd(),
+            max_tokens=max_tokens,
+        )
+    )
 
     while True:
-        prompt = input("you> ").strip()
-        if not prompt:
+        user_input = input("you>").strip()
+        if not user_input:
             continue
-        if prompt.lower() in {"exit", "quit"}:
+        if user_input.lower() in {"exit", "quit"}:
             break
 
-        messages.append({"role": "user", "content": prompt})
-        response = agent_loop(messages, max_tokens=max_tokens)
+        messages.append({"role": "user", "content": user_input})
+        response = cli_agent.run(messages)
         print(f"assistant> {response_to_text(response)}")
 
 
