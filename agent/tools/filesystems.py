@@ -45,9 +45,49 @@ def run_glob(pattern: str) -> str:
     import glob as g
     try:
         results = []
-        for match in g.glob(pattern, root_dir=WORKDIR):
+        for match in g.glob(pattern, root_dir=WORKDIR, recursive=True):
             if (WORKDIR / match).resolve().is_relative_to(WORKDIR):
                 results.append(match)
         return "\n".join(results) if results else "(no matches)"
     except Exception as e:
         return f"Error: {e}"
+
+def run_search_text(query: str , pattern: str = "**/*", limit: int = 50) -> str:
+    if not query.strip():
+        return "Error: query is required"
+
+    if not any(mark in pattern for mark in "*?[]") and not Path(pattern).suffix:
+        pattern = "**/*"
+
+    results = []
+    skipped_dirs = {".git", ".venv", "__pycache__", ".pytest_cache"}
+
+    try:
+        for file_path in WORKDIR.glob(pattern):
+            if len(results) >= limit:
+                break
+            if not file_path.is_file():
+                continue
+            if any(part in skipped_dirs for part in file_path.parts):
+                continue
+            if not file_path.resolve().is_relative_to(WORKDIR):
+                continue
+
+            try:
+                lines = file_path.read_text(encoding="utf-8").splitlines()
+            except UnicodeDecodeError:
+                continue
+            except OSError:
+                continue
+
+            for line_no, line in enumerate(lines, start=1):
+                if query.lower() in line.lower():
+                    rel_path = file_path.relative_to(WORKDIR)
+                    results.append(f"{rel_path}:{line_no}: {line.strip()}")
+                    if len(results) >= limit:
+                        break
+
+        return "\n".join(results) if results else "(no matches)"
+    except Exception as e:
+        return f"Error : {e}"
+
