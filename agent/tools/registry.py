@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Callable
+
 from agent.tools.filesystems import (
     run_edit,
     run_glob,
@@ -5,7 +10,6 @@ from agent.tools.filesystems import (
     run_write,
     run_search_text
 )
-from typing import Any, Callable
 
 TOOLS = [
     {
@@ -79,13 +83,19 @@ TOOL_HANDLERS: dict[str, Callable[..., str]] = {
     "search_text": run_search_text,
 }
 
-def execute_tool(name: str, tool_input: dict[str ,Any]) -> str:
+def execute_tool(
+    name: str,
+    tool_input: dict[str, Any],
+    workspace: Path | str | None = None,
+) -> str:
     handler = TOOL_HANDLERS.get(name)
     if handler is None:
         return f"Error: Unknown tool : {name}"
+    if not isinstance(tool_input, dict):
+        return f"Error: ValidationError: tool input for {name} must be an object"
 
     try:
-        return handler(**tool_input)
+        return handler(**tool_input, workspace=workspace)
     except TypeError as e:
         return f"Error: invalid arguments for {name} : {e}"
     except Exception as e:

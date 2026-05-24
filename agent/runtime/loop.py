@@ -25,7 +25,7 @@ def agent_loop(messages: list, max_tokens: int = 1024, workspace: Path = ROOT_DI
         for block in response.content:
             if block.type == "tool_use":
                 print(f"\033[33m$ {block.name} {block.input}\033[0m")
-                output = execute_tool(block.name, block.input)
+                output = execute_tool(block.name, block.input, workspace=workspace)
                 print(output[:200])
                 results.append({"type" : "tool_result", "tool_use_id" : block.id,
                                 "content" : output})

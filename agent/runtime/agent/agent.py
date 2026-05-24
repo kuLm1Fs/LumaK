@@ -13,9 +13,9 @@ class AgentConfig:
 
 class Agent:
     def __init__(self, config: AgentConfig | None = None) -> None:
-        self.config=config
+        self.config = config or AgentConfig(workspace=Path.cwd())
 
-    def run(self, messages: list[str]) -> list[str]:
+    def run(self, messages: list[dict]) -> object:
 
         return agent_loop(
             messages=messages,
