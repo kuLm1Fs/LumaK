@@ -1,6 +1,6 @@
-# LocalRepoCheck
+# CodeAnalyst
 
-LocalRepoCheck 是一个本地代码库理解与安全修改 Agent。它通过模型的 tool calling 能力，在受限工作目录内读取、搜索和修改代码文件，帮助开发者快速理解项目结构与定位相关代码。
+CodeAnalyst 是一个本地代码库理解与安全修改 Agent。它通过模型的 tool calling 能力，在受限工作目录内读取、搜索和修改代码文件，帮助开发者快速理解项目结构与定位相关代码。
 
 当前版本优先实现 agent runtime 的最小闭环，而不是前端或复杂平台能力。
 
