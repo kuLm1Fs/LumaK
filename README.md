@@ -94,9 +94,9 @@ python main.py
 非法参数会返回明确错误，不直接让程序崩溃
 搜索工具带有结果数量限制和超时控制
 ## 当前进度
-Day 1：项目骨架、CLI、模型配置、MiniMax provider
-Day 2：tool calling loop、工具 registry、文件读取和搜索
-Day 3：路径限制、参数校验、错误分类、搜索超时
+- 项目骨架、CLI、模型配置、MiniMax provider
+- tool calling loop、工具 registry、文件读取和搜索
+- 路径限制、参数校验、错误分类、搜索超时
 ## 下一步计划
 记录工具调用 trace
 保存 session/history

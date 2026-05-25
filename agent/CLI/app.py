@@ -5,7 +5,8 @@ import argparse
 from pathlib import Path
 from agent.runtime.loop import response_to_text
 from agent.runtime.agent.agent import Agent, AgentConfig
-
+from uuid import uuid4
+from agent.storage.trace import make_session_id
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Chat with the agent from the CLI.")
@@ -18,14 +19,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     return parser
 
-
 def run_once(prompt: str, max_tokens: int) -> None:
-    cli_agent = Agent(
-        AgentConfig(
-            workspace=Path.cwd(),
-            max_tokens=max_tokens,
-        )
+    config = AgentConfig(
+        workspace=Path.cwd(),
+        max_tokens=max_tokens,
+        session_id=make_session_id(),
     )
+    cli_agent = Agent(config)
     messages = [{"role": "user", "content": prompt}]
     response = cli_agent.run(messages)
     print(response_to_text(response))

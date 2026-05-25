@@ -4,16 +4,19 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from agent.runtime.loop import agent_loop
+from agent.storage.trace import make_session_id
 
 @dataclass(frozen=True)
 class AgentConfig:
     workspace: Path
     max_steps: int = 6
     max_tokens: int = 1024
+    session_id: str | None = None
 
 class Agent:
     def __init__(self, config: AgentConfig | None = None) -> None:
         self.config = config or AgentConfig(workspace=Path.cwd())
+        self.session_id = self.config.session_id or make_session_id()
 
     def run(self, messages: list[dict]) -> object:
 
