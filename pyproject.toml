@@ -1,5 +1,5 @@
 [project]
-name = "CodeAnalyst"
+name = "lumak"
 version = "0.1.0"
 description = "A local codebase understanding and safe-editing agent runtime."
 readme = "README.md"
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-codeanalyst = "agent.CLI.app:main"
+lumak = "agent.CLI.app:main"
 
 [dependency-groups]
 dev = [
