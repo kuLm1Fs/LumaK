@@ -12,9 +12,96 @@ const attachmentRow = getElement<HTMLDivElement>("#attachmentRow");
 const promptInput = getElement<HTMLTextAreaElement>("#promptInput");
 const composer = getElement<HTMLFormElement>(".composer");
 const messages = getElement<HTMLElement>(".messages");
+const providerForm = getElement<HTMLFormElement>("#providerForm");
+const providerSelect = getElement<HTMLSelectElement>("#providerSelect");
+const apiKeyInput = getElement<HTMLInputElement>("#apiKeyInput");
+const modelSelect = getElement<HTMLSelectElement>("#modelSelect");
+const customModelField = getElement<HTMLLabelElement>("#customModelField");
+const customModelInput = getElement<HTMLInputElement>("#customModelInput");
+const providerState = getElement<HTMLSpanElement>("#providerState");
+const providerDialog = getElement<HTMLDialogElement>("#providerDialog");
+const openProviderDialog = getElement<HTMLButtonElement>("#openProviderDialog");
+const closeProviderDialog = getElement<HTMLButtonElement>("#closeProviderDialog");
 const assistantAvatarSrc = "./assets/lumak-logo.png";
 
 const selectedFiles: File[] = [];
+const providerStorageKey = "lumak.providerConfig";
+const customModelOptions = ["custom"];
+const modelOptions: Record<string, string[]> = {
+  minimax: ["MiniMax-M2.7", "abab6.5s-chat", "custom"],
+  anthropic: ["claude-sonnet-4-5", "claude-opus-4-1", "custom"],
+  openai: ["gpt-5.1", "gpt-5.1-mini", "custom"],
+  deepseek: ["deepseek-chat", "deepseek-reasoner", "custom"],
+  custom: customModelOptions,
+};
+
+type ProviderConfig = {
+  apiKey: string;
+  model: string;
+  provider: string;
+};
+
+function maskApiKey(apiKey: string): string {
+  if (apiKey.length <= 8) {
+    return "已保存";
+  }
+
+  return `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`;
+}
+
+function getProviderLabel(provider: string): string {
+  return providerSelect.querySelector<HTMLOptionElement>(`option[value="${provider}"]`)?.textContent ?? provider;
+}
+
+function setModelOptions(provider: string, selectedModel?: string): void {
+  const options = modelOptions[provider] ?? customModelOptions;
+  modelSelect.innerHTML = "";
+
+  options.forEach((model) => {
+    const option = document.createElement("option");
+    option.value = model;
+    option.textContent = model === "custom" ? "Custom model" : model;
+    modelSelect.append(option);
+  });
+
+  if (selectedModel && options.includes(selectedModel)) {
+    modelSelect.value = selectedModel;
+  } else if (selectedModel) {
+    modelSelect.value = "custom";
+    customModelInput.value = selectedModel;
+  }
+
+  updateCustomModelVisibility();
+}
+
+function updateCustomModelVisibility(): void {
+  const needsCustomModel = modelSelect.value === "custom" || providerSelect.value === "custom";
+  customModelField.hidden = !needsCustomModel;
+}
+
+function renderProviderState(config?: ProviderConfig): void {
+  if (!config) {
+    providerState.textContent = "未配置";
+    return;
+  }
+
+  providerState.textContent = `${getProviderLabel(config.provider)} · ${config.model} · ${maskApiKey(config.apiKey)}`;
+}
+
+function loadProviderConfig(): void {
+  const rawConfig = window.localStorage.getItem(providerStorageKey);
+  setModelOptions(providerSelect.value);
+
+  if (!rawConfig) {
+    return;
+  }
+
+  const config = JSON.parse(rawConfig) as ProviderConfig;
+  providerSelect.value = config.provider;
+  apiKeyInput.value = config.apiKey;
+  setModelOptions(config.provider, config.model);
+  renderProviderState(config);
+}
 
 function renderAttachments(): void {
   attachmentRow.innerHTML = "";
@@ -72,6 +159,55 @@ fileInput.addEventListener("change", () => {
 
 promptInput.addEventListener("input", resizePrompt);
 
+openProviderDialog.addEventListener("click", () => {
+  providerDialog.showModal();
+});
+
+closeProviderDialog.addEventListener("click", () => {
+  providerDialog.close();
+});
+
+providerDialog.addEventListener("click", (event) => {
+  if (event.target === providerDialog) {
+    providerDialog.close();
+  }
+});
+
+providerSelect.addEventListener("change", () => {
+  setModelOptions(providerSelect.value);
+});
+
+modelSelect.addEventListener("change", () => {
+  updateCustomModelVisibility();
+
+  if (modelSelect.value === "custom" && !providerDialog.open) {
+    providerDialog.showModal();
+    customModelInput.focus();
+  }
+});
+
+providerForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const apiKey = apiKeyInput.value.trim();
+  const model = modelSelect.value === "custom" ? customModelInput.value.trim() : modelSelect.value;
+
+  if (!apiKey || !model) {
+    renderProviderState();
+    return;
+  }
+
+  const config: ProviderConfig = {
+    apiKey,
+    model,
+    provider: providerSelect.value,
+  };
+
+  window.localStorage.setItem(providerStorageKey, JSON.stringify(config));
+  renderProviderState(config);
+  providerDialog.close();
+});
+
 composer.addEventListener("submit", (event) => {
   event.preventDefault();
 
@@ -92,3 +228,5 @@ composer.addEventListener("submit", (event) => {
   renderAttachments();
   resizePrompt();
 });
+
+loadProviderConfig();

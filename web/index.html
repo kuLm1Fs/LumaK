@@ -72,6 +72,7 @@
           </div>
           <div class="header-actions">
             <span class="status-pill">Local workspace</span>
+            <button class="ghost-button" id="openProviderDialog" type="button">模型设置</button>
             <button class="ghost-button" type="button">导出</button>
           </div>
         </header>
@@ -103,6 +104,7 @@
               <span aria-hidden="true">↑</span>
             </label>
             <textarea id="promptInput" rows="1" placeholder="输入问题，或上传图片 / 文件..." aria-label="输入消息"></textarea>
+            <select class="model-select" id="modelSelect" name="model" aria-label="选择模型"></select>
             <button class="send-button" type="submit" aria-label="发送消息">
               <span aria-hidden="true">→</span>
             </button>
@@ -111,6 +113,43 @@
         </form>
       </main>
     </div>
+
+    <dialog class="provider-dialog" id="providerDialog">
+      <form class="provider-panel" id="providerForm" method="dialog" aria-label="模型提供商配置">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Provider setup</p>
+            <h2>模型提供商</h2>
+          </div>
+          <button class="dialog-close" id="closeProviderDialog" type="button" aria-label="关闭">×</button>
+        </div>
+
+        <p class="provider-state" id="providerState">未配置</p>
+
+        <label class="field">
+          <span>提供商</span>
+          <select id="providerSelect" name="provider">
+            <option value="minimax">MiniMax</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="custom">Custom</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>API Key</span>
+          <input id="apiKeyInput" name="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
+        </label>
+
+        <label class="field custom-model-field" id="customModelField" hidden>
+          <span>自定义模型</span>
+          <input id="customModelInput" name="customModel" type="text" placeholder="输入模型名称，例如 my-model" />
+        </label>
+
+        <button class="provider-submit" type="submit">保存配置</button>
+      </form>
+    </dialog>
 
     <script src="./dist/app.js"></script>
   </body>
