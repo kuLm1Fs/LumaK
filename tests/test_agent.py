@@ -10,11 +10,13 @@ from agent.runtime.agent.agent import Agent, AgentConfig
 
 
 def test_agent_run_passes_session_id_to_agent_loop(tmp_path: Path) -> None:
+    llm_client = object()
     config = AgentConfig(
         workspace=tmp_path,
         max_steps=3,
         max_tokens=256,
         session_id="test-session-123",
+        llm_client=llm_client,
     )
     agent = Agent(config)
     messages = [{"role": "user", "content": "hello"}]
@@ -29,4 +31,5 @@ def test_agent_run_passes_session_id_to_agent_loop(tmp_path: Path) -> None:
         max_steps=3,
         workspace=tmp_path,
         session_id="test-session-123",
+        llm_client=llm_client,
     )

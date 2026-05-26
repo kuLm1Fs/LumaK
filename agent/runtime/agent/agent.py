@@ -12,6 +12,7 @@ class AgentConfig:
     max_steps: int = 6
     max_tokens: int = 1024
     session_id: str | None = None
+    llm_client: object | None = None
 
 class Agent:
     def __init__(self, config: AgentConfig | None = None) -> None:
@@ -25,5 +26,6 @@ class Agent:
             max_tokens=self.config.max_tokens,
             max_steps=self.config.max_steps,
             workspace=self.config.workspace,
-            session_id=self.session_id
+            session_id=self.session_id,
+            llm_client=self.config.llm_client,
         )

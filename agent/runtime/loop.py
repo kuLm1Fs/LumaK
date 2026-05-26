@@ -1,11 +1,16 @@
 from pathlib import Path
-from agent.LLM.client import client
 from agent.tools.registry import TOOLS, execute_tool
 from agent.storage.trace import make_session_id, AgentTrace
 import time
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+
+
+def get_default_client():
+    from agent.LLM.client import get_default_client as create_default_client
+
+    return create_default_client()
 
 def response_to_text(response) -> str:
     texts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
@@ -15,7 +20,9 @@ def agent_loop(messages: list,
                max_tokens: int = 1024, 
                workspace: Path = ROOT_DIR, 
                max_steps: int = 6,
-               session_id: str | None = None) -> list[str]:
+               session_id: str | None = None,
+               llm_client=None) -> list[str]:
+    llm_client = llm_client or get_default_client()
     session_id = session_id or make_session_id()
     trace = AgentTrace(workspace=workspace, session_id=session_id)
 
@@ -27,8 +34,8 @@ def agent_loop(messages: list,
         trace.record_event("loop.iteration.start", {"iteration" : i + 1})
 
         request_start = time.perf_counter()
-        response = client.messages.create(
-            model=client.default_model,
+        response = llm_client.messages.create(
+            model=llm_client.default_model,
             max_tokens=max_tokens,
             messages=messages,
             tools=TOOLS,
@@ -37,7 +44,7 @@ def agent_loop(messages: list,
         trace.record_model_request(
             prompt=messages,
             max_tokens=max_tokens,
-            tools=[tool.name for tool in TOOLS],
+            tools=[tool["name"] for tool in TOOLS],
         )
         trace.record_model_response(
             stop_reason=response.stop_reason,

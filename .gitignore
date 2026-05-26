@@ -19,6 +19,7 @@ node_modules/
 # Logs / local runtime output
 *.log
 logs/
+.trace/
 traces/
 sessions/
 
@@ -29,6 +30,7 @@ build/
 coverage/
 htmlcov/
 doc/
+todo/
 
 # env
 .env
