@@ -25,6 +25,7 @@ sessions/
 # Build artifacts
 dist/
 build/
+*.egg-info/
 coverage/
 htmlcov/
 doc/

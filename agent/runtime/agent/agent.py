@@ -24,5 +24,6 @@ class Agent:
             messages=messages,
             max_tokens=self.config.max_tokens,
             max_steps=self.config.max_steps,
-            workspace=self.config.workspace
+            workspace=self.config.workspace,
+            session_id=self.session_id
         )

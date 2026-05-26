@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+import difflib
 
 WORKDIR = Path.cwd().resolve()
 SKIPPED_DIRS = {".git", ".venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
@@ -109,6 +110,53 @@ def run_edit(
         return f"Error: IOError: {e}"
 
 
+def run_safe_edit(
+    path: str,
+    old_text: str,
+    new_text: str,
+    preview: bool = False,
+    workspace: Path | str | None = None,
+) -> str:
+    try:
+        if not old_text:
+            return "Error: ValidationError: old_text is required"
+        if not isinstance(new_text, str):
+            return "Error: ValidationError: new_text must be a string"
+
+        file_path = safe_path(path, workspace)
+        if not file_path.exists():
+            return f"Error: NotFoundError: file not found: {path}"
+        if not file_path.is_file():
+            return f"Error: ValidationError: path is not a file: {path}"
+
+        text = file_path.read_text(encoding="utf-8")
+        if old_text not in text:
+            return f"Error: NotFoundError: old_text not found in {path}"
+
+        patched = text.replace(old_text, new_text, 1)
+        diff = "\n".join(
+            difflib.unified_diff(
+                text.splitlines(keepends=True),
+                patched.splitlines(keepends=True),
+                fromfile=f"a/{path}",
+                tofile=f"b/{path}",
+                lineterm="",
+            )
+        )
+
+        if preview:
+            return f"Preview (no write performed):\n{diff or '(no diff)'}"
+
+        file_path.write_text(patched, encoding="utf-8")
+        return f"Edited {path}\n\n{diff or '(no diff)'}"
+    except UnicodeDecodeError:
+        return f"Error: ValidationError: file is not valid utf-8 text: {path}"
+    except ValueError as e:
+        return f"Error: PathError: {e}"
+    except OSError as e:
+        return f"Error: IOError: {e}"
+
+
 def run_glob(pattern: str, limit: int = 200, workspace: Path | str | None = None) -> str:
     try:
         if limit <= 0:
@@ -183,4 +231,3 @@ def run_search_text(
         return f"Error: ValidationError: {e}"
     except OSError as e:
         return f"Error: IOError: {e}"
-

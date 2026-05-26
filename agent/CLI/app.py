@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 
 from pathlib import Path
-from agent.runtime.loop import response_to_text
-from agent.runtime.agent.agent import Agent, AgentConfig
-from uuid import uuid4
 from agent.storage.trace import make_session_id
+
+
+def response_to_text(response) -> str:
+    texts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
+    return "\n".join(texts).strip() or str(response.content)
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Chat with the agent from the CLI.")
@@ -20,6 +22,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 def run_once(prompt: str, max_tokens: int) -> None:
+    from agent.runtime.agent.agent import Agent, AgentConfig
+
     config = AgentConfig(
         workspace=Path.cwd(),
         max_tokens=max_tokens,
@@ -32,6 +36,8 @@ def run_once(prompt: str, max_tokens: int) -> None:
 
 
 def run_chat(max_tokens: int) -> None:
+    from agent.runtime.agent.agent import Agent, AgentConfig
+
     print("MiniMax CLI chat ready. Type 'exit' or 'quit' to stop.")
     messages = []
     cli_agent = Agent(

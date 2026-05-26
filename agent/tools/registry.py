@@ -7,8 +7,9 @@ from agent.tools.filesystems import (
     run_edit,
     run_glob,
     run_read,
+    run_search_text,
+    run_safe_edit,
     run_write,
-    run_search_text
 )
 
 TOOLS = [
@@ -37,19 +38,6 @@ TOOLS = [
         },
     },
     {
-        "name": "edit_file",
-        "description": "Replace exact text in a file once.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "old_text": {"type": "string"},
-                "new_text": {"type": "string"},
-            },
-            "required": ["path", "old_text", "new_text"],
-        },
-    },
-    {
         "name": "glob",
         "description": "Find files matching a glob pattern in the current workspace.",
         "input_schema": {
@@ -67,12 +55,26 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "query": {"type": "string"},
-                "pattern":{"type": "string"},
-                "limit": {"type": "integer"}
+                "pattern": {"type": "string"},
+                "limit": {"type": "integer"},
             },
-            "required" : ["query"],
+            "required": ["query"],
         },
-    }
+    },
+    {
+        "name": "safe_edit",
+        "description": "Safely edit a file by replacing exact text once, with optional diff preview.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "old_text": {"type": "string"},
+                "new_text": {"type": "string"},
+                "preview": {"type": "boolean"},
+            },
+            "required": ["path", "old_text", "new_text"],
+        },
+    },
 ]
 
 TOOL_HANDLERS: dict[str, Callable[..., str]] = {
@@ -81,7 +83,9 @@ TOOL_HANDLERS: dict[str, Callable[..., str]] = {
     "edit_file": run_edit,
     "glob": run_glob,
     "search_text": run_search_text,
+    "safe_edit": run_safe_edit,
 }
+
 
 def execute_tool(
     name: str,
@@ -90,13 +94,13 @@ def execute_tool(
 ) -> str:
     handler = TOOL_HANDLERS.get(name)
     if handler is None:
-        return f"Error: Unknown tool : {name}"
+        return f"Error: Unknown tool: {name}"
     if not isinstance(tool_input, dict):
         return f"Error: ValidationError: tool input for {name} must be an object"
 
     try:
         return handler(**tool_input, workspace=workspace)
     except TypeError as e:
-        return f"Error: invalid arguments for {name} : {e}"
+        return f"Error: ValidationError: invalid arguments for {name}: {e}"
     except Exception as e:
         return f"Error: tool {name} failed: {e}"

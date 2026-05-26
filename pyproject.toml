@@ -1,10 +1,27 @@
 [project]
-name = "localrepocheck"
+name = "CodeAnalyst"
 version = "0.1.0"
-description = "Add your description here"
+description = "A local codebase understanding and safe-editing agent runtime."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=0.104.1",
     "dotenv>=0.9.9",
 ]
+
+[project.scripts]
+codeanalyst = "agent.CLI.app:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.uv]
+package = true
+
+[tool.setuptools.packages.find]
+include = ["agent*"]
