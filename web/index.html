@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lumak</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="历史记录">
+        <div class="brand">
+          <img class="brand-mark" src="./assets/lumak-logo.png" alt="" aria-hidden="true" />
+          <div>
+            <strong>Lumak</strong>
+            <span>AI code workspace</span>
+          </div>
+        </div>
+
+        <section class="sidebar-section conversations" aria-labelledby="conversation-title">
+          <div class="section-heading">
+            <h2 id="conversation-title">历史对话</h2>
+            <button class="icon-button" type="button" aria-label="新建对话">+</button>
+          </div>
+          <nav class="history-list" aria-label="历史对话列表">
+            <a class="history-item active" href="#">
+              <span>分析项目入口</span>
+              <small>刚刚</small>
+            </a>
+            <a class="history-item" href="#">
+              <span>梳理 Agent Runtime</span>
+              <small>昨天</small>
+            </a>
+            <a class="history-item" href="#">
+              <span>修复文件工具测试</span>
+              <small>周一</small>
+            </a>
+          </nav>
+        </section>
+
+        <section class="sidebar-section projects" aria-labelledby="project-title">
+          <div class="section-heading">
+            <h2 id="project-title">历史项目</h2>
+          </div>
+          <nav class="history-list" aria-label="历史项目列表">
+            <a class="history-item" href="#">
+              <span>Lumak</span>
+              <small>本地</small>
+            </a>
+            <a class="history-item" href="#">
+              <span>Runtime Demo</span>
+              <small>归档</small>
+            </a>
+          </nav>
+        </section>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-header">
+          <div>
+            <p class="eyebrow">Your branded coding AI</p>
+            <h1>Lumak</h1>
+            <div class="context-strip" aria-label="当前项目状态">
+              <span>Lumak / Runtime</span>
+              <span>12 files indexed</span>
+              <span>Local tools enabled</span>
+            </div>
+            <p class="header-copy">上传文件、截图或直接提问，让 Agent 帮你理解和修改当前项目。</p>
+          </div>
+          <div class="header-actions">
+            <span class="status-pill">Local workspace</span>
+            <button class="ghost-button" type="button">导出</button>
+          </div>
+        </header>
+
+        <section class="messages" aria-label="对话内容">
+          <article class="message assistant">
+            <img class="avatar" src="./assets/lumak-logo.png" alt="" aria-hidden="true" />
+            <div class="bubble">
+              <p>你好，我可以读取项目结构、定位代码、解释模块关系，也可以帮你做小范围修改。</p>
+            </div>
+          </article>
+          <article class="message user">
+            <div class="bubble">
+              <p>先帮我看看这个项目的入口和测试覆盖。</p>
+            </div>
+          </article>
+          <article class="message assistant">
+            <img class="avatar" src="./assets/lumak-logo.png" alt="" aria-hidden="true" />
+            <div class="bubble">
+              <p>入口在 CLI 和主模块里，测试重点覆盖文件工具、LLM provider、agent loop 和配置加载。</p>
+            </div>
+          </article>
+        </section>
+
+        <form class="composer" aria-label="发送消息">
+          <div class="attachment-row" id="attachmentRow" hidden></div>
+          <div class="composer-box">
+            <label class="upload-button" for="fileInput" aria-label="上传图片或文件">
+              <span aria-hidden="true">↑</span>
+            </label>
+            <textarea id="promptInput" rows="1" placeholder="输入问题，或上传图片 / 文件..." aria-label="输入消息"></textarea>
+            <button class="send-button" type="submit" aria-label="发送消息">
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <input id="fileInput" type="file" accept="image/*,.pdf,.doc,.docx,.txt,.md,.zip" multiple />
+        </form>
+      </main>
+    </div>
+
+    <script src="./dist/app.js"></script>
+  </body>
+</html>
