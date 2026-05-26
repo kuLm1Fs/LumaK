@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from agent.runtime.agent.agent import Agent, AgentConfig
 from agent.runtime.hooks import HookManager
 from agent.runtime.loop import agent_loop
-from agent.storage.trace import AgentTrace, TraceHook
+from agent.trace.trace import AgentTrace, TraceHook
 
 
 class AttrDict(dict):

@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from pathlib import Path
-from agent.storage.trace import make_session_id
+from agent.trace.trace import make_session_id
 
 
 def response_to_text(response) -> str:

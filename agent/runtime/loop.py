@@ -1,7 +1,8 @@
 from pathlib import Path
 from agent.tools.registry import TOOLS, execute_tool
-from agent.storage.trace import make_session_id, AgentTrace, TraceHook
+from agent.trace.trace import make_session_id, AgentTrace, TraceHook
 from agent.runtime.hooks import Hook, HookManager
+from agent.memory.store import MemoryStore
 import time
 
 
@@ -33,6 +34,16 @@ def emit_hook(
         workspace=str(workspace),
     )
 
+def append_message(
+    messages: list,
+    message: dict,
+    *,
+    memory_store: MemoryStore | None,
+    session_id: str,) -> None:
+    messages.append(message)
+    if memory_store:
+        memory_store.append_message(session_id, message)
+
 def agent_loop(
         messages: list, 
         max_tokens: int = 1024, 
@@ -40,11 +51,18 @@ def agent_loop(
         max_steps: int = 6,
         session_id: str | None = None,
         llm_client=None,
-        hooks: list[Hook] | None = None) -> list[str]:
+        hooks: list[Hook] | None = None,
+        memory_store: MemoryStore | None = None,) -> list[str]:
     llm_client = llm_client or get_default_client()
     session_id = session_id or make_session_id()
     trace = AgentTrace(workspace=workspace, session_id=session_id)
     hook_manager = HookManager([TraceHook(trace), *(hooks or [])])
+    incoming_messages = list(messages)
+    if memory_store:
+        persisted_messages = memory_store.load_messages(session_id)
+        for message in incoming_messages:
+            memory_store.append_message(session_id, message)
+        messages = [*persisted_messages, *incoming_messages]
 
     emit_hook(
         hook_manager,
@@ -117,7 +135,12 @@ def agent_loop(
             workspace=workspace,
         )
 
-        messages.append({"role" : "assistant" , "content": response.content})
+        append_message(
+            messages,
+            {"role": "assistant", "content": response.content},
+            memory_store=memory_store,
+            session_id=session_id,
+        )
 
         if response.stop_reason != "tool_use" :
             final_text = response_to_text(response)
@@ -170,7 +193,12 @@ def agent_loop(
                 print(output[:200])
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
 
-        messages.append({"role": "user", "content": results})
+        append_message(
+            messages,
+            {"role": "user", "content": results},
+            memory_store=memory_store,
+            session_id=session_id,
+        )
 
     emit_hook(
         hook_manager,

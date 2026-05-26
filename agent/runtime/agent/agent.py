@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from agent.runtime.hooks import Hook
 from agent.runtime.loop import agent_loop
-from agent.storage.trace import make_session_id
+from agent.trace.trace import make_session_id
+from agent.runtime.hooks import Hook
+from agent.memory.store import MemoryStore
 
 @dataclass(frozen=True)
 class AgentConfig:
@@ -15,6 +16,7 @@ class AgentConfig:
     session_id: str | None = None
     llm_client: object | None = None
     hooks: list[Hook] | None = None
+    memory_store: MemoryStore | None = None
 
 class Agent:
     def __init__(self, config: AgentConfig | None = None) -> None:
@@ -31,4 +33,5 @@ class Agent:
             session_id=self.session_id,
             llm_client=self.config.llm_client,
             hooks=self.config.hooks,
+            memory_store=self.config.memory_store
         )

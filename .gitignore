@@ -19,12 +19,15 @@ node_modules/
 # Logs / local runtime output
 *.log
 logs/
+.memory/
 .trace/
 traces/
 sessions/
 
 # Build artifacts
 dist/
+!web/dist/
+!web/dist/app.js
 build/
 *.egg-info/
 coverage/
