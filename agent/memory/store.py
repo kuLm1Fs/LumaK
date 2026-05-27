@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from datetime import datetime, timezone
 
 class MemoryStore:
     def __init__(self, root: Path | str = ".memory") -> None:
@@ -30,3 +31,52 @@ class MemoryStore:
     
     def clear_session(self, session_id: str) -> None:
         self.session_path(session_id).unlink(missing_ok=True)
+
+    def list_sessions(self) -> list[dict[str, Any]]:
+        sessions: list[dict[str, Any]] = []
+
+        for path in self.session_dir.glob("*.jsonl"):
+            messages = self._load_path(path)
+            updated_at = datetime.fromtimestamp(
+                path.stat().st_mtime,
+                tz=timezone.utc,
+            ).isoformat().replace("+00:00", "Z")
+            sessions.append(
+                {
+                    "id": path.stem,
+                    "title": self._title_for_messages(messages),
+                    "updated_at": updated_at,
+                    "message_count": len(messages),
+                    "last_message": self._preview_for_message(messages[-1]) if messages else "",
+                }
+            )
+
+        return sorted(sessions, key=lambda item: str(item["updated_at"]), reverse=True)
+
+    def _load_path(self, path: Path) -> list[dict[str, Any]]:
+        messages = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                messages.append(json.loads(line))
+        return messages
+
+    def _title_for_messages(self, messages: list[dict[str, Any]]) -> str:
+        for message in messages:
+            if message.get("role") == "user":
+                preview = self._preview_for_message(message)
+                if preview:
+                    return preview[:28]
+        return "新对话"
+
+    def _preview_for_message(self, message: dict[str, Any]) -> str:
+        content = message.get("content", "")
+        if isinstance(content, str):
+            return content.strip()
+        if isinstance(content, list):
+            text_parts = [
+                str(item.get("text", ""))
+                for item in content
+                if isinstance(item, dict) and item.get("type") == "text"
+            ]
+            return " ".join(part for part in text_parts if part).strip()
+        return str(content).strip()

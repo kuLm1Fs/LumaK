@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from agent.tools.registry import TOOLS, execute_tool
 from agent.trace.trace import make_session_id, AgentTrace, TraceHook
 from agent.runtime.hooks import Hook, HookManager
@@ -19,6 +20,37 @@ def get_default_client():
 def response_to_text(response) -> str:
     texts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
     return "\n".join(texts).strip() or str(response.content)
+
+def make_json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+
+    if isinstance(value, dict):
+        return {
+            str(key): make_json_safe(item)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, (list, tuple)):
+        return [make_json_safe(item) for item in value]
+
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return make_json_safe(model_dump(mode="json", exclude_none=True))
+
+    block_type = getattr(value, "type", None)
+    if block_type:
+        serialized = {"type": block_type}
+        for key in ("text", "id", "name", "input", "thinking", "signature", "content"):
+            if hasattr(value, key):
+                serialized[key] = make_json_safe(getattr(value, key))
+        return serialized
+
+    return str(value)
+
+
+def serialize_content_blocks(content: list[Any]) -> list[Any]:
+    return [make_json_safe(block) for block in content]
 
 
 def emit_hook(
@@ -219,7 +251,7 @@ def agent_loop(
 
         append_message(
             messages,
-            {"role": "assistant", "content": response.content},
+            {"role": "assistant", "content": serialize_content_blocks(response.content)},
             memory_store=memory_store,
             session_id=session_id,
         )

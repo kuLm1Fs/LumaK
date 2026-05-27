@@ -23,37 +23,21 @@
         <section class="sidebar-section conversations" aria-labelledby="conversation-title">
           <div class="section-heading">
             <h2 id="conversation-title">历史对话</h2>
-            <button class="icon-button" type="button" aria-label="新建对话">+</button>
+            <div class="section-actions">
+              <button class="icon-button" id="clearConversationsButton" type="button" aria-label="清空历史">⌫</button>
+              <button class="icon-button" id="newConversationButton" type="button" aria-label="新建对话">+</button>
+            </div>
           </div>
-          <nav class="history-list" aria-label="历史对话列表">
-            <a class="history-item active" href="#">
-              <span>分析项目入口</span>
-              <small>刚刚</small>
-            </a>
-            <a class="history-item" href="#">
-              <span>梳理 Agent Runtime</span>
-              <small>昨天</small>
-            </a>
-            <a class="history-item" href="#">
-              <span>修复文件工具测试</span>
-              <small>周一</small>
-            </a>
+          <nav class="history-list" id="conversationList" aria-label="历史对话列表">
           </nav>
         </section>
 
         <section class="sidebar-section projects" aria-labelledby="project-title">
           <div class="section-heading">
             <h2 id="project-title">历史项目</h2>
+            <button class="icon-button" id="addProjectButton" type="button" aria-label="添加项目">+</button>
           </div>
-          <nav class="history-list" aria-label="历史项目列表">
-            <a class="history-item" href="#">
-              <span>Lumak</span>
-              <small>本地</small>
-            </a>
-            <a class="history-item" href="#">
-              <span>Runtime Demo</span>
-              <small>归档</small>
-            </a>
+          <nav class="history-list" id="projectList" aria-label="历史项目列表">
           </nav>
         </section>
       </aside>
@@ -65,15 +49,16 @@
             <h1>Lumak</h1>
             <div class="context-strip" aria-label="当前项目状态">
               <span>Lumak / Runtime</span>
-              <span>12 files indexed</span>
-              <span>Local tools enabled</span>
+              <span id="sessionState">New session</span>
+              <span>WebSocket gateway</span>
             </div>
             <p class="header-copy">上传文件、截图或直接提问，让 Agent 帮你理解和修改当前项目。</p>
           </div>
           <div class="header-actions">
-            <span class="status-pill">Local workspace</span>
+            <span class="status-pill" id="gatewayState">Gateway connecting</span>
             <button class="ghost-button" id="openProviderDialog" type="button">模型设置</button>
-            <button class="ghost-button" type="button">导出</button>
+            <button class="ghost-button" id="openDetailsButton" type="button">运行详情</button>
+            <button class="ghost-button" id="exportConversationButton" type="button">导出</button>
           </div>
         </header>
 
@@ -82,17 +67,6 @@
             <img class="avatar" src="./assets/lumak-logo.png" alt="" aria-hidden="true" />
             <div class="bubble">
               <p>你好，我可以读取项目结构、定位代码、解释模块关系，也可以帮你做小范围修改。</p>
-            </div>
-          </article>
-          <article class="message user">
-            <div class="bubble">
-              <p>先帮我看看这个项目的入口和测试覆盖。</p>
-            </div>
-          </article>
-          <article class="message assistant">
-            <img class="avatar" src="./assets/lumak-logo.png" alt="" aria-hidden="true" />
-            <div class="bubble">
-              <p>入口在 CLI 和主模块里，测试重点覆盖文件工具、LLM provider、agent loop 和配置加载。</p>
             </div>
           </article>
         </section>
@@ -142,6 +116,11 @@
           <input id="apiKeyInput" name="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
         </label>
 
+        <label class="field">
+          <span>Base URL（MiniMax / Custom 必填，其他可选）</span>
+          <input id="baseUrlInput" name="baseUrl" type="url" placeholder="https://api.example.com/v1" autocomplete="off" />
+        </label>
+
         <label class="field custom-model-field" id="customModelField" hidden>
           <span>自定义模型</span>
           <input id="customModelInput" name="customModel" type="text" placeholder="输入模型名称，例如 my-model" />
@@ -151,6 +130,23 @@
       </form>
     </dialog>
 
-    <script src="./dist/app.js"></script>
+    <dialog class="details-dialog" id="detailsDialog">
+      <section class="details-panel" aria-label="运行详情">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">Runtime details</p>
+            <h2>运行详情</h2>
+          </div>
+          <button class="dialog-close" id="closeDetailsDialog" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="details-actions">
+          <button class="ghost-button" id="refreshDetailsButton" type="button">刷新</button>
+          <span class="provider-state" id="detailsState">等待加载</span>
+        </div>
+        <pre class="details-output" id="detailsOutput">暂无数据</pre>
+      </section>
+    </dialog>
+
+    <script type="module" src="/src/app.ts"></script>
   </body>
 </html>

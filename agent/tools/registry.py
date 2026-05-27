@@ -11,6 +11,11 @@ from agent.tools.filesystems import (
     run_safe_edit,
     run_write,
 )
+from agent.tools.code_analysis import (
+    run_code_map,
+    run_file_outline,
+    run_symbol_lookup,
+)
 
 TOOLS = [
     {
@@ -75,6 +80,41 @@ TOOLS = [
             "required": ["path", "old_text", "new_text"],
         },
     },
+    {
+        "name": "file_outline",
+        "description": "Return a Python AST outline for one file, including imports, classes, functions, methods, signatures, and line ranges.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "code_map",
+        "description": "Return a Python AST code map for files in the workspace.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pattern": {"type": "string"},
+                "limit": {"type": "integer"},
+            },
+        },
+    },
+    {
+        "name": "symbol_lookup",
+        "description": "Find Python class, function, or method definitions by exact symbol name.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "pattern": {"type": "string"},
+                "limit": {"type": "integer"},
+            },
+            "required": ["name"],
+        },
+    },
 ]
 
 TOOL_HANDLERS: dict[str, Callable[..., str]] = {
@@ -84,6 +124,9 @@ TOOL_HANDLERS: dict[str, Callable[..., str]] = {
     "glob": run_glob,
     "search_text": run_search_text,
     "safe_edit": run_safe_edit,
+    "file_outline": run_file_outline,
+    "code_map": run_code_map,
+    "symbol_lookup": run_symbol_lookup,
 }
 
 

@@ -27,13 +27,16 @@ sessions/
 # Build artifacts
 dist/
 !web/dist/
-!web/dist/app.js
+!web/dist/**
 build/
 *.egg-info/
 coverage/
 htmlcov/
 doc/
 todo/
+
+# Skills
+.skills/summarize-1.0.0/
 
 # env
 .env

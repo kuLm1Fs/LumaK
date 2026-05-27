@@ -55,7 +55,7 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
+  height: 100vh;
   overflow: hidden;
   background:
     radial-gradient(circle at 62% 8%, var(--glow-a), transparent 28rem),
@@ -111,7 +111,8 @@ a {
   display: grid;
   grid-template-columns: 292px minmax(0, 1fr);
   gap: 0;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   padding: 0;
 }
 
@@ -119,7 +120,8 @@ a {
   display: grid;
   grid-template-rows: auto minmax(220px, 1fr) minmax(150px, 0.7fr);
   gap: 20px;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   border-right: 1px solid var(--sidebar-line);
   border-radius: 0;
   background: var(--sidebar-bg);
@@ -173,6 +175,11 @@ a {
   padding: 0 3px;
 }
 
+.section-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .section-heading h2 {
   margin: 0;
   color: var(--faint);
@@ -222,7 +229,8 @@ a {
   font-weight: 700;
 }
 
-.provider-dialog {
+.provider-dialog,
+.details-dialog {
   width: min(430px, calc(100vw - 32px));
   border: 0;
   border-radius: 24px;
@@ -231,12 +239,18 @@ a {
   padding: 0;
 }
 
-.provider-dialog::backdrop {
+.details-dialog {
+  width: min(880px, calc(100vw - 32px));
+}
+
+.provider-dialog::backdrop,
+.details-dialog::backdrop {
   background: rgba(20, 17, 13, 0.28);
   backdrop-filter: blur(8px);
 }
 
-.provider-panel {
+.provider-panel,
+.details-panel {
   display: grid;
   gap: 16px;
   border: 1px solid var(--command-line);
@@ -244,6 +258,27 @@ a {
   background: var(--command-bg);
   box-shadow: 0 26px 80px rgba(24, 20, 15, 0.22);
   padding: 18px;
+}
+
+.details-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.details-output {
+  max-height: min(62vh, 620px);
+  overflow: auto;
+  border: 1px solid var(--command-line);
+  border-radius: 16px;
+  margin: 0;
+  background: var(--surface-muted);
+  color: var(--text);
+  padding: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .dialog-heading {
@@ -317,18 +352,57 @@ a {
   padding-right: 2px;
 }
 
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  border-radius: 18px;
+}
+
+.history-row:hover {
+  background: var(--surface-strong);
+  box-shadow: 0 12px 28px rgba(45, 39, 28, 0.08);
+}
+
 .history-item {
   display: grid;
   gap: 5px;
+  width: 100%;
+  border: 0;
   border-radius: 18px;
+  background: transparent;
   padding: 12px 13px;
   color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
 }
 
 .history-item:hover,
 .history-item.active {
   background: var(--surface-strong);
   box-shadow: 0 12px 28px rgba(45, 39, 28, 0.08);
+}
+
+.history-actions {
+  display: none;
+  gap: 4px;
+  padding-right: 6px;
+}
+
+.history-row:hover .history-actions,
+.history-row:focus-within .history-actions {
+  display: flex;
+}
+
+.history-actions button {
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 5px 8px;
+  font-size: 11px;
 }
 
 .history-item span {
@@ -348,7 +422,8 @@ a {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
-  min-height: 100vh;
+  height: 100vh;
+  min-height: 0;
   overflow: hidden;
   border-radius: 0;
   background: rgba(255, 255, 255, 0.32);
@@ -432,6 +507,18 @@ a {
   font-size: 13px;
 }
 
+.status-pill[data-state="connected"] {
+  color: #287047;
+}
+
+.status-pill[data-state="connecting"] {
+  color: var(--muted);
+}
+
+.status-pill[data-state="error"] {
+  color: #b33b2e;
+}
+
 .ghost-button {
   padding: 0 16px;
 }
@@ -440,7 +527,9 @@ a {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
   overflow: auto;
+  overflow-x: hidden;
   padding: 16px min(6vw, 72px) 22px;
 }
 
@@ -448,12 +537,18 @@ a {
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  max-width: 680px;
+  width: min(100%, 980px);
+  max-width: 100%;
+  min-width: 0;
 }
 
 .message.user {
   align-self: flex-end;
   justify-content: flex-end;
+}
+
+.message.event {
+  width: min(100%, 720px);
 }
 
 .avatar {
@@ -467,6 +562,8 @@ a {
 }
 
 .bubble {
+  min-width: 0;
+  max-width: 100%;
   border-radius: 18px;
   background: var(--surface-strong);
   box-shadow: 0 8px 24px rgba(44, 37, 26, 0.07);
@@ -483,10 +580,79 @@ a {
   color: var(--user-bubble-text);
 }
 
+.message.event .bubble {
+  background: var(--surface-muted);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.message.error .bubble {
+  background: rgba(179, 59, 46, 0.1);
+  color: #b33b2e;
+  box-shadow: none;
+}
+
 .bubble p {
   margin: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
   line-height: 1.58;
   font-size: 14px;
+}
+
+.bubble ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.bubble code {
+  border-radius: 6px;
+  background: var(--surface-muted);
+  padding: 1px 5px;
+  font-size: 0.94em;
+}
+
+.code-block {
+  position: relative;
+  overflow: auto;
+  border-radius: 12px;
+  margin: 0;
+  background: rgba(10, 15, 24, 0.92);
+  color: #f4f7fb;
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.code-block code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.copy-code-button,
+.retry-button {
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.copy-code-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 5px 9px;
+}
+
+.retry-button {
+  margin-top: 10px;
+  padding: 7px 12px;
 }
 
 .composer {
@@ -547,6 +713,11 @@ a {
   color: var(--accent-text);
 }
 
+.send-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 textarea {
   width: 100%;
   max-height: 180px;
@@ -558,6 +729,11 @@ textarea {
   color: var(--text);
   line-height: 1.5;
   padding: 7px 0;
+}
+
+textarea:disabled {
+  cursor: progress;
+  opacity: 0.68;
 }
 
 textarea::placeholder {
@@ -602,17 +778,22 @@ textarea::placeholder {
 
 @media (max-width: 920px) {
   body {
+    height: auto;
+    min-height: 100vh;
     overflow: auto;
   }
 
   .app-shell {
     grid-template-columns: 1fr;
     gap: 14px;
+    height: auto;
+    min-height: 100vh;
     padding: 12px;
   }
 
   .sidebar {
     grid-template-rows: auto auto auto;
+    height: auto;
     min-height: auto;
     border-right: 0;
     border-radius: 24px;
@@ -625,6 +806,7 @@ textarea::placeholder {
   }
 
   .chat-panel {
+    height: calc(100vh - 280px);
     min-height: calc(100vh - 280px);
     border-radius: 26px;
   }

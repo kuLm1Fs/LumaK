@@ -35,6 +35,14 @@ def tool_use_block(tool_id: str, name: str, tool_input: dict):
     return AttrDict(type="tool_use", id=tool_id, name=name, input=tool_input)
 
 
+class FakeThinkingBlock:
+    type = "thinking"
+
+    def __init__(self, thinking: str, signature: str) -> None:
+        self.thinking = thinking
+        self.signature = signature
+
+
 def response(stop_reason: str, content: list[object]):
     return SimpleNamespace(stop_reason=stop_reason, content=content)
 
@@ -133,5 +141,45 @@ def test_agent_loop_persists_tool_results_to_session_memory(tmp_path: Path) -> N
                 "tool_use_id": "tool-1",
                 "content": "# CodeAnalyst",
             }
+        ],
+    }
+
+
+def test_agent_loop_serializes_non_json_sdk_blocks_before_persisting_memory(tmp_path: Path) -> None:
+    store = MemoryStore(tmp_path / ".memory")
+    fake_client = FakeLLMClient(
+        [
+            response(
+                "end_turn",
+                [
+                    FakeThinkingBlock("private reasoning", "signed"),
+                    text_block("visible answer"),
+                ],
+            )
+        ]
+    )
+
+    agent_loop(
+        messages=[{"role": "user", "content": "think"}],
+        workspace=tmp_path,
+        session_id="thinking-session",
+        llm_client=fake_client,
+        memory_store=store,
+    )
+
+    saved_messages = store.load_messages("thinking-session")
+
+    assert saved_messages[1] == {
+        "role": "assistant",
+        "content": [
+            {
+                "type": "thinking",
+                "thinking": "private reasoning",
+                "signature": "signed",
+            },
+            {
+                "type": "text",
+                "text": "visible answer",
+            },
         ],
     }

@@ -8,10 +8,12 @@ dependencies = [
     "anthropic>=0.104.1",
     "dotenv>=0.9.9",
     "openai>=2.8.1",
+    "websockets>=15.0.1",
 ]
 
 [project.scripts]
-lumak = "agent.CLI.app:main"
+lumak = "lumak.cli:main"
+lumak-gateway = "gateway.app:main"
 
 [dependency-groups]
 dev = [
@@ -25,4 +27,16 @@ pythonpath = ["."]
 package = true
 
 [tool.setuptools.packages.find]
-include = ["agent*"]
+include = ["agent*", "gateway*", "lumak*"]
+
+[tool.setuptools.data-files]
+"share/lumak/tui/dist" = [
+    "tui/dist/app-utils.js",
+    "tui/dist/index.js",
+]
+"share/lumak/web/dist" = [
+    "web/dist/index.html",
+]
+"share/lumak/web/dist/assets" = [
+    "web/dist/assets/*",
+]
