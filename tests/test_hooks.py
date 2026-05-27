@@ -63,12 +63,12 @@ def test_trace_hook_records_emitted_context(tmp_path: Path) -> None:
         session_id="trace-hook-session",
         trace_dir=tmp_path / ".trace",
     )
-    trace_hook = TraceHook(trace)
+    trace_hook = TraceHook(trace, payload_limit=20)
     manager = HookManager([trace_hook])
 
     manager.emit(
         "custom.event",
-        {"ok": True},
+        {"ok": True, "output": "x" * 40},
         session_id="trace-hook-session",
         workspace=str(tmp_path),
     )
@@ -77,9 +77,28 @@ def test_trace_hook_records_emitted_context(tmp_path: Path) -> None:
 
     assert '"type": "custom.event"' in trace_text
     assert '"ok": true' in trace_text
+    assert '"length": 40' in trace_text
+    assert '"truncated": true' in trace_text
 
 
-def test_agent_loop_trace_records_session_start_once(tmp_path: Path) -> None:
+def test_agent_loop_does_not_write_trace_by_default(tmp_path: Path) -> None:
+    fake_client = FakeLLMClient(
+        [response("end_turn", [text_block("done")])]
+    )
+    trace_path = Path(".trace") / "trace-disabled-session.jsonl"
+    trace_path.unlink(missing_ok=True)
+
+    agent_loop(
+        messages=[{"role": "user", "content": "hello"}],
+        workspace=tmp_path,
+        session_id="trace-disabled-session",
+        llm_client=fake_client,
+    )
+
+    assert not trace_path.exists()
+
+
+def test_agent_loop_trace_records_session_start_once_when_enabled(tmp_path: Path) -> None:
     fake_client = FakeLLMClient(
         [response("end_turn", [text_block("done")])]
     )
@@ -91,6 +110,7 @@ def test_agent_loop_trace_records_session_start_once(tmp_path: Path) -> None:
         workspace=tmp_path,
         session_id="single-session-start",
         llm_client=fake_client,
+        trace_enabled=True,
     )
 
     trace_text = trace_path.read_text(encoding="utf-8")
@@ -116,6 +136,7 @@ def test_agent_loop_emits_lifecycle_hooks(tmp_path: Path) -> None:
 
     assert event_names == [
         "session.start",
+        "skills.selected",
         "message",
         "loop.iteration.start",
         "model.request",
@@ -123,8 +144,8 @@ def test_agent_loop_emits_lifecycle_hooks(tmp_path: Path) -> None:
         "loop.model.duration",
         "session.end",
     ]
-    assert events[3][1]["model"] == "fake-model"
-    assert events[3][1]["message_count"] == 1
+    assert events[4][1]["model"] == "fake-model"
+    assert events[4][1]["message_count"] == 1
     assert events[-1][1]["final_output"] == "done"
 
 

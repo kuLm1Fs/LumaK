@@ -18,6 +18,8 @@ class AgentConfig:
     hooks: list[Hook] | None = None
     memory_store: MemoryStore | None = None
     skills_root: Path | str | None = None
+    trace_enabled: bool = False
+    trace_payload_limit: int = 2000
 
 class Agent:
     def __init__(self, config: AgentConfig | None = None) -> None:
@@ -36,4 +38,6 @@ class Agent:
             hooks=self.config.hooks,
             memory_store=self.config.memory_store,
             skills_root=self.config.skills_root,
+            trace_enabled=self.config.trace_enabled,
+            trace_payload_limit=self.config.trace_payload_limit,
         )

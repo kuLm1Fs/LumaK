@@ -106,11 +106,16 @@ def agent_loop(
         llm_client=None,
         hooks: list[Hook] | None = None,
         memory_store: MemoryStore | None = None,
-        skills_root: Path | str | None = None,) -> list[str]:
+        skills_root: Path | str | None = None,
+        trace_enabled: bool = False,
+        trace_payload_limit: int = 2000,) -> list[str]:
     llm_client = llm_client or get_default_client()
     session_id = session_id or make_session_id()
-    trace = AgentTrace(workspace=workspace, session_id=session_id)
-    hook_manager = HookManager([TraceHook(trace), *(hooks or [])])
+    active_hooks = list(hooks or [])
+    if trace_enabled:
+        trace = AgentTrace(workspace=workspace, session_id=session_id)
+        active_hooks.insert(0, TraceHook(trace, payload_limit=trace_payload_limit))
+    hook_manager = HookManager(active_hooks)
     incoming_messages = list(messages)
 
     selection, system_prompt = select_skills_for_messages(

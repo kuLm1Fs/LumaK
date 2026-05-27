@@ -16,6 +16,31 @@ def now_iso() -> str:
 def make_session_id() -> str:
     return f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}_{uuid4().hex[:8]}"
 
+
+def compact_payload(value: Any, *, limit: int) -> Any:
+    if isinstance(value, str):
+        if len(value) <= limit:
+            return value
+        return {
+            "preview": value[:limit],
+            "length": len(value),
+            "truncated": True,
+        }
+
+    if isinstance(value, dict):
+        return {
+            key: compact_payload(item, limit=limit)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, list):
+        return [
+            compact_payload(item, limit=limit)
+            for item in value
+        ]
+
+    return value
+
 @dataclass
 class AgentTrace:
     workspace: Path
@@ -39,8 +64,12 @@ class AgentTrace:
 
 
 class TraceHook:
-    def __init__(self, trace: AgentTrace) -> None:
+    def __init__(self, trace: AgentTrace, payload_limit: int = 2000) -> None:
         self.trace = trace
+        self.payload_limit = payload_limit
 
     def __call__(self, context: HookContext) -> None:
-        self.trace.record_event(context.event, context.payload)
+        self.trace.record_event(
+            context.event,
+            compact_payload(context.payload, limit=self.payload_limit),
+        )
