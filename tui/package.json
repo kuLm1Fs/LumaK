@@ -1,0 +1,20 @@
+{
+  "name": "@lumak/tui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "lumak-tui": "dist/index.js"
+  },
+  "scripts": {
+    "build": "../web/node_modules/.bin/tsc -p tsconfig.json",
+    "start": "npm run build && node dist/index.js",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "typecheck": "../web/node_modules/.bin/tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "slice-ansi": "^9.0.0",
+    "string-width": "^8.2.1",
+    "wrap-ansi": "^10.0.0"
+  }
+}
