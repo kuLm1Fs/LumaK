@@ -70,13 +70,13 @@ DEEPSEEK_MODEL_ID=deepseek-chat
 3. 运行 CLI：
 
 ```shell
-uv run codeanalyst
+uv run lumak
 ```
 
 也可以发送一次性 prompt：
 
 ```shell
-uv run codeanalyst "这个项目的入口文件在哪里？"
+uv run lumak "这个项目的入口文件在哪里？"
 ```
 
 ## Web UI

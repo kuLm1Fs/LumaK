@@ -28,6 +28,7 @@ def run_once(prompt: str, max_tokens: int) -> None:
         workspace=Path.cwd(),
         max_tokens=max_tokens,
         session_id=make_session_id(),
+        skills_root=Path(".skills"),
     )
     cli_agent = Agent(config)
     messages = [{"role": "user", "content": prompt}]
@@ -38,12 +39,13 @@ def run_once(prompt: str, max_tokens: int) -> None:
 def run_chat(max_tokens: int) -> None:
     from agent.runtime.agent.agent import Agent, AgentConfig
 
-    print("MiniMax CLI chat ready. Type 'exit' or 'quit' to stop.")
+    print("LumaK is ready. Type 'exit' or 'quit' to stop.")
     messages = []
     cli_agent = Agent(
         AgentConfig(
             workspace=Path.cwd(),
             max_tokens=max_tokens,
+            skills_root=Path(".skills"),
         )
     )
 

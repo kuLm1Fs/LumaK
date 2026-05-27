@@ -34,4 +34,5 @@ def test_agent_run_passes_session_id_to_agent_loop(tmp_path: Path) -> None:
         llm_client=llm_client,
         hooks=None,
         memory_store=None,
+        skills_root=None,
     )

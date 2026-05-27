@@ -17,6 +17,7 @@ class AgentConfig:
     llm_client: object | None = None
     hooks: list[Hook] | None = None
     memory_store: MemoryStore | None = None
+    skills_root: Path | str | None = None
 
 class Agent:
     def __init__(self, config: AgentConfig | None = None) -> None:
@@ -33,5 +34,6 @@ class Agent:
             session_id=self.session_id,
             llm_client=self.config.llm_client,
             hooks=self.config.hooks,
-            memory_store=self.config.memory_store
+            memory_store=self.config.memory_store,
+            skills_root=self.config.skills_root,
         )

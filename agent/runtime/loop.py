@@ -3,6 +3,8 @@ from agent.tools.registry import TOOLS, execute_tool
 from agent.trace.trace import make_session_id, AgentTrace, TraceHook
 from agent.runtime.hooks import Hook, HookManager
 from agent.memory.store import MemoryStore
+from agent.skills import SkillSelector, SkillStore, render_skill_system_prompt
+from agent.skills.selector import SkillSelection
 import time
 
 
@@ -44,6 +46,57 @@ def append_message(
     if memory_store:
         memory_store.append_message(session_id, message)
 
+
+def select_skills_for_messages(
+        messages: list,
+        skills_root: Path | str | None,
+) -> tuple[SkillSelection, str]:
+    selection = SkillSelection(
+        skills=[],
+        mode="None",
+        explicit_names=[],
+        missing_explicit_names=[],
+        cleaned_text="",
+    )
+
+    if not skills_root:
+        return selection, ""
+    
+    user_text = "\n".join(
+        str(message.get("content", ""))
+        for message in messages
+        if isinstance(message, dict) and message.get("role") == "user"
+    )
+
+    skills = SkillStore(skills_root).load_all()
+    selection = SkillSelector(skills).select(user_text)
+    system_prompt = render_skill_system_prompt(selection.skills)
+
+    return selection, system_prompt
+
+
+def emit_skills_selected(
+        hook_manager: HookManager,
+        selection: SkillSelection,
+        *,
+        session_id: str,
+        workspace: str,
+        skills_root: Path | str | None,
+) -> None:
+    emit_hook(
+        hook_manager,
+        "skills.selected",
+        {
+            "mode": selection.mode,
+            "skill_names": [skill.name for skill in selection.skills],
+            "explicit_names": selection.explicit_names,
+            "missing_explicit_names": selection.missing_explicit_names,
+            "skills_root": str(skills_root) if skills_root else None,
+        },
+        session_id=session_id,
+        workspace=workspace,
+    )
+
 def agent_loop(
         messages: list, 
         max_tokens: int = 1024, 
@@ -52,24 +105,41 @@ def agent_loop(
         session_id: str | None = None,
         llm_client=None,
         hooks: list[Hook] | None = None,
-        memory_store: MemoryStore | None = None,) -> list[str]:
+        memory_store: MemoryStore | None = None,
+        skills_root: Path | str | None = None,) -> list[str]:
     llm_client = llm_client or get_default_client()
     session_id = session_id or make_session_id()
     trace = AgentTrace(workspace=workspace, session_id=session_id)
     hook_manager = HookManager([TraceHook(trace), *(hooks or [])])
     incoming_messages = list(messages)
+
+    selection, system_prompt = select_skills_for_messages(
+        messages=incoming_messages,
+        skills_root=skills_root
+    )
+
     if memory_store:
         persisted_messages = memory_store.load_messages(session_id)
         for message in incoming_messages:
             memory_store.append_message(session_id, message)
         messages = [*persisted_messages, *incoming_messages]
 
+    # start hook
     emit_hook(
         hook_manager,
         "session.start",
         {"session_id": session_id},
         session_id=session_id,
         workspace=workspace,
+    )
+
+    # skill hook
+    emit_skills_selected(
+        hook_manager,
+        selection,
+        session_id=session_id,
+        workspace=workspace,
+        skills_root=skills_root,
     )
 
     for message in messages:
@@ -107,12 +177,19 @@ def agent_loop(
             session_id=session_id,
             workspace=workspace,
         )
-        response = llm_client.messages.create(
-            model=llm_client.default_model,
-            max_tokens=max_tokens,
-            messages=messages,
-            tools=TOOLS,
-        )
+
+        request_kwargs = {
+            "model": llm_client.default_model,
+            "max_tokens": max_tokens,
+            "messages": messages,
+            "tools": TOOLS,
+        }
+        if system_prompt:
+            request_kwargs["system"] = system_prompt
+
+
+        response = llm_client.messages.create(**request_kwargs)
+
         request_elapsed = (time.perf_counter() - request_start) * 1000
         emit_hook(
             hook_manager,
