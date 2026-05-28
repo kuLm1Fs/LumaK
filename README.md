@@ -27,7 +27,7 @@ LumaK 是一个 **local-first 的代码库理解与安全修改 Agent**。它在
 
 ## 快速开始
 
-### 1. 安装 Python 依赖
+### 1. 安装依赖
 
 ```shell
 uv sync
@@ -80,7 +80,7 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL_ID=deepseek-chat
 ```
 
-### 3. 运行 CLI
+### 3. 用 `uv run` 启动
 
 启动多轮对话：
 
@@ -102,6 +102,40 @@ uv run lumak "这个项目的入口文件在哪里？"
 uv run lumak --max-tokens 2048 "总结 agent/runtime/loop.py 的执行流程"
 ```
 
+运行 Web UI 和 gateway：
+
+```shell
+cd web
+npm install
+npm run build
+cd ..
+
+uv run lumak web
+```
+
+启动后打开：
+
+- Web UI: `http://127.0.0.1:4173`
+- Gateway: `ws://127.0.0.1:8765`
+
+在服务器上对外访问时，不要只绑定 `127.0.0.1`，需要监听所有网卡：
+
+```shell
+uv run lumak web --host 0.0.0.0 --gateway-host 0.0.0.0
+```
+
+然后打开：
+
+```text
+http://<server-ip>:4173
+```
+
+同时确保 `4173` 和 `8765` 两个端口都已经放行。Web 页面会根据当前访问地址自动连接 gateway；如果你的反向代理或端口映射比较特殊，也可以手动指定：
+
+```text
+http://<server-ip>:4173?gateway=ws://<server-ip>:8765
+```
+
 ### 4. 运行终端 TUI
 
 ```shell
@@ -112,6 +146,7 @@ TUI 代码位于 `tui/`，使用 TypeScript 实现，并通过本地 WebSocket g
 
 ```shell
 cd tui
+npm install
 npm run build
 npm test
 ```
@@ -120,65 +155,38 @@ TUI 默认会自动启动本地 gateway，展示当前 session、模型请求、
 
 `lumak tui` 会启动已构建好的 TypeScript TUI，需要本机有 Node.js。如果修改了 `tui/src/`，先运行 `cd tui && npm run build` 更新 `tui/dist/`。
 
-### 5. 从源码打包安装
+## 安装成 `lumak` 命令
 
-如果你从 GitHub 拉下这个仓库，可以按下面流程从源码构建出可安装的 Python wheel。打包产物会包含 Python runtime、gateway、TypeScript TUI 的已构建 JS 文件，以及 Web UI 的静态文件。
+如果你希望在任意目录直接运行 `lumak web`、`lumak cli`、`lumak tui`，可以从源码安装成本机工具。
 
 ```shell
 git clone <repo-url> lumaK
 cd lumaK
 ```
 
-同步 Python 依赖：
+先构建前端和 TUI 产物。构建产物不提交到 Git，安装或部署时现场生成：
 
 ```shell
 uv sync
-```
 
-构建 TypeScript TUI。`lumak tui` 运行的是 `tui/dist/index.js`，所以源码安装或发布前需要先生成它：
+cd web
+npm install
+npm run build
+cd ..
 
-```shell
 cd tui
 npm install
 npm run build
 cd ..
 ```
 
-构建 Web UI。`lumak web` 会服务 `web/dist/`，所以也要先生成静态文件：
+开发期推荐直接 editable 安装：
 
 ```shell
-cd web
-npm install
-npm run build
-cd ..
+uv tool install --editable .
 ```
 
-构建 Python sdist 和 wheel：
-
-```shell
-uv build
-```
-
-构建完成后会生成：
-
-```text
-dist/lumak-0.1.0.tar.gz
-dist/lumak-0.1.0-py3-none-any.whl
-```
-
-本地安装 wheel：
-
-```shell
-uv tool install dist/lumak-0.1.0-py3-none-any.whl
-```
-
-如果已经安装过旧版本，可以强制重装：
-
-```shell
-uv tool install --reinstall dist/lumak-0.1.0-py3-none-any.whl
-```
-
-安装后会得到统一的 `lumak` 命令：
+安装后可以直接运行：
 
 ```shell
 lumak cli
@@ -187,53 +195,52 @@ lumak tui
 lumak web
 ```
 
-也可以不全局安装，直接在源码目录里用 `uv run` 验证：
+如果要生成 wheel 再安装：
+
+```shell
+uv build
+uv tool install --reinstall dist/lumak-0.1.0-py3-none-any.whl
+```
+
+服务器上用已安装的 `lumak` 命令启动：
+
+```shell
+lumak web --host 0.0.0.0 --gateway-host 0.0.0.0
+```
+
+## 两种启动方式怎么选
+
+- `uv run lumak ...`：适合开发、调试、刚 clone 下来验证。优点是不用安装全局命令，依赖跟仓库绑定。
+- `lumak ...`：适合你自己的机器或服务器长期使用。优点是命令短，可以在别的 workspace 里直接启动。
+
+暂时不建议把 Homebrew 作为主安装方式。brew 需要稳定的 release 包、formula 维护、资源打包策略和版本升级测试；在这些没有固定下来之前，README 里写 brew 只会让安装路径看起来更正式，但失败面更大。等 `uv tool install` 这条链路稳定后，再补 brew formula 更合适。
+
+可以用下面命令检查入口是否安装成功：
 
 ```shell
 uv run lumak --help
-uv run lumak gateway --help
-uv run lumak tui --help
-uv run lumak web --help
+lumak --help
 ```
 
 ## Web UI 与 Gateway
 
 前端代码位于 `web/`，本地 gateway 位于 `gateway/`。Web UI 通过 WebSocket 连接 runtime，支持聊天、项目信息、历史会话、trace 查询和运行时事件展示。
 
-安装并构建前端：
-
-```shell
-cd web
-npm install
-npm run build
-```
-
-一键启动 Web UI 和 WebSocket gateway：
-
-```shell
-uv run lumak web
-```
-
-启动后打开：
-
-- Web UI: `http://127.0.0.1:4173`
-- Gateway: `ws://127.0.0.1:8765`
-
 `lumak web` 会直接服务已构建的 `web/dist/`，并在需要时自动启动 gateway。如果 gateway 或 Web 端口已经被占用，会复用现有服务。
 
-也可以手动从 `web/` 目录启动：
-
-```shell
-cd web
-npm run dev
-```
-
-也可以单独启动 gateway：
+Web 和 gateway 也可以分开启动：
 
 ```shell
 uv run lumak gateway
+uv run lumak web
+```
+
+指定 workspace：
+
+```shell
+uv run lumak gateway --workspace /path/to/your/project
 # 或
-uv run python -m gateway.app
+LUMAK_WORKSPACE=/path/to/your/project uv run lumak gateway
 ```
 
 默认情况下，gateway 会把启动它时所在的目录作为 `WORKSPACE`。如果浏览器前端拿不到本地目录的绝对路径，推荐直接在目标项目目录启动 gateway：
@@ -241,14 +248,6 @@ uv run python -m gateway.app
 ```shell
 cd /path/to/your/project
 uv run --project /path/to/lumaK lumak gateway
-```
-
-或者从 LumaK 仓库目录指定 workspace：
-
-```shell
-uv run lumak gateway --workspace /path/to/your/project
-# 或
-LUMAK_WORKSPACE=/path/to/your/project uv run lumak gateway
 ```
 
 常用 gateway 消息类型：
