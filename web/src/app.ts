@@ -1,7 +1,7 @@
 import {
   buildAttachmentPrompt,
   buildChatPayload,
-  buildGatewayUrl,
+  buildGatewayUrlCandidates,
   createProjectRecord,
   createProjectRecordFromPath,
   renderMarkdownLite,
@@ -58,7 +58,7 @@ const sessionStorageKey = "lumak.sessionId";
 const conversationStorageKey = "lumak.conversations";
 const projectStorageKey = "lumak.projects";
 const gatewayOverrideStorageKey = "lumak.gatewayUrl";
-const gatewayUrl = buildGatewayUrl(window.location, 8765, window.localStorage.getItem(gatewayOverrideStorageKey));
+const gatewayUrls = buildGatewayUrlCandidates(window.location, 8765, window.localStorage.getItem(gatewayOverrideStorageKey));
 const reconnectDelayMs = 1600;
 const maxReconnectAttempts = 8;
 const customModelOptions = ["custom"];
@@ -105,6 +105,7 @@ type Conversation = {
 
 let websocket: WebSocket | null = null;
 let reconnectAttempts = 0;
+let gatewayUrlIndex = 0;
 let pendingMessage: string | null = null;
 let lastFailedPrompt: string | null = null;
 let waitingForResponse = false;
@@ -388,7 +389,7 @@ function renderAttachments(): void {
 function setGatewayState(text: string, state: "connected" | "connecting" | "error"): void {
   gatewayState.textContent = text;
   gatewayState.dataset.state = state;
-  gatewayState.title = gatewayUrl;
+  gatewayState.title = gatewayUrls[gatewayUrlIndex] ?? gatewayUrls.join("\n");
 }
 
 function updateSessionState(): void {
@@ -750,6 +751,7 @@ function handleGatewayMessage(message: GatewayMessage): void {
 
 function connectGateway(): void {
   setGatewayState("Gateway connecting", "connecting");
+  const gatewayUrl = gatewayUrls[gatewayUrlIndex] ?? gatewayUrls[0] ?? "ws://127.0.0.1:8765";
   websocket = new WebSocket(gatewayUrl);
 
   websocket.addEventListener("open", () => {
@@ -776,7 +778,8 @@ function connectGateway(): void {
         [
           "无法连接 gateway。",
           "",
-          `当前尝试连接：\`${gatewayUrl}\``,
+          "已尝试连接：",
+          ...gatewayUrls.map((url) => `- \`${url}\``),
           "",
           "请确认 gateway 正在运行，并且 Codespaces 已转发 8765 端口。也可以在页面 URL 后添加 `?gateway=wss://你的-gateway-地址` 手动指定。",
         ].join("\n"),
@@ -787,6 +790,7 @@ function connectGateway(): void {
     }
 
     reconnectAttempts += 1;
+    gatewayUrlIndex = (gatewayUrlIndex + 1) % gatewayUrls.length;
     window.setTimeout(connectGateway, reconnectDelayMs);
   });
 

@@ -42,14 +42,29 @@ export function buildGatewayUrl(
   gatewayPort = 8765,
   overrideUrl?: string | null,
 ): string {
+  return buildGatewayUrlCandidates(location, gatewayPort, overrideUrl)[0] ?? "ws://127.0.0.1:8765";
+}
+
+export function buildGatewayUrlCandidates(
+  location: Pick<Location, "hostname" | "port" | "protocol" | "search">,
+  gatewayPort = 8765,
+  overrideUrl?: string | null,
+): string[] {
+  const candidates: string[] = [];
+  const addCandidate = (url: string | undefined) => {
+    if (url && !candidates.includes(url)) {
+      candidates.push(url);
+    }
+  };
+
   const cleanOverrideUrl = overrideUrl?.trim();
   if (cleanOverrideUrl?.startsWith("ws://") || cleanOverrideUrl?.startsWith("wss://")) {
-    return cleanOverrideUrl;
+    addCandidate(cleanOverrideUrl);
   }
 
   const gatewayParam = new URLSearchParams(location.search).get("gateway")?.trim();
   if (gatewayParam?.startsWith("ws://") || gatewayParam?.startsWith("wss://")) {
-    return gatewayParam;
+    addCandidate(gatewayParam);
   }
 
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -57,19 +72,22 @@ export function buildGatewayUrl(
 
   if (localHosts.has(location.hostname)) {
     const host = location.hostname === "::1" ? "[::1]" : location.hostname;
-    return `${protocol}//${host}:${gatewayPort}`;
+    addCandidate(`${protocol}//${host}:${gatewayPort}`);
+    return candidates;
   }
 
   const codespacesHost = location.hostname.match(/^(.+)-(\d+)\.(app\.github\.dev|githubpreview\.dev)$/);
   if (codespacesHost) {
-    return `${protocol}//${codespacesHost[1]}-${gatewayPort}.${codespacesHost[3]}`;
+    addCandidate(`${protocol}//${codespacesHost[1]}-${gatewayPort}.${codespacesHost[3]}`);
   }
 
   if (location.port) {
-    return `${protocol}//${location.hostname}:${gatewayPort}`;
+    addCandidate(`${protocol}//${location.hostname}:${gatewayPort}`);
+  } else {
+    addCandidate(`${protocol}//${location.hostname}`);
   }
 
-  return `${protocol}//${location.hostname}`;
+  return candidates;
 }
 
 export function createProjectRecord(

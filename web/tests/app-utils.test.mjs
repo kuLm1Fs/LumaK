@@ -5,6 +5,7 @@ import {
   buildChatPayload,
   buildAttachmentPrompt,
   buildGatewayUrl,
+  buildGatewayUrlCandidates,
   createProjectRecord,
   createProjectRecordFromPath,
   renderMarkdownLite,
@@ -81,6 +82,21 @@ test("buildGatewayUrl supports a stored override", () => {
       "wss://stored-gateway.example.test",
     ),
     "wss://stored-gateway.example.test",
+  );
+});
+
+test("buildGatewayUrlCandidates includes fallbacks without duplicates", () => {
+  assert.deepEqual(
+    buildGatewayUrlCandidates({
+      hostname: "silver-space-codex-4173.app.github.dev",
+      port: "",
+      protocol: "https:",
+      search: "",
+    }),
+    [
+      "wss://silver-space-codex-8765.app.github.dev",
+      "wss://silver-space-codex-4173.app.github.dev",
+    ],
   );
 });
 
