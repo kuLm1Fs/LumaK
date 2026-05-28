@@ -37,6 +37,30 @@ export type ProjectRecord = {
   updatedAt: number;
 };
 
+export function buildGatewayUrl(
+  location: Pick<Location, "hostname" | "port" | "protocol">,
+  gatewayPort = 8765,
+): string {
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+
+  if (localHosts.has(location.hostname)) {
+    const host = location.hostname === "::1" ? "[::1]" : location.hostname;
+    return `${protocol}//${host}:${gatewayPort}`;
+  }
+
+  const codespacesHost = location.hostname.match(/^(.+)-(\d+)\.(app\.github\.dev|githubpreview\.dev)$/);
+  if (codespacesHost) {
+    return `${protocol}//${codespacesHost[1]}-${gatewayPort}.${codespacesHost[3]}`;
+  }
+
+  if (location.port) {
+    return `${protocol}//${location.hostname}:${gatewayPort}`;
+  }
+
+  return `${protocol}//${location.hostname}`;
+}
+
 export function createProjectRecord(
   input: { name: string; path?: string },
   createId: () => string,

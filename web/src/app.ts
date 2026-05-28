@@ -1,12 +1,15 @@
 import {
   buildAttachmentPrompt,
   buildChatPayload,
+  buildGatewayUrl,
   createProjectRecord,
   createProjectRecordFromPath,
   renderMarkdownLite,
   type AttachmentText,
   type ProjectRecord,
 } from "./app-utils";
+
+const assistantAvatarSrc = new URL("../assets/lumak-logo.png", import.meta.url).href;
 
 function getElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -48,14 +51,13 @@ const closeDetailsDialog = getElement<HTMLButtonElement>("#closeDetailsDialog");
 const refreshDetailsButton = getElement<HTMLButtonElement>("#refreshDetailsButton");
 const detailsState = getElement<HTMLSpanElement>("#detailsState");
 const detailsOutput = getElement<HTMLPreElement>("#detailsOutput");
-const assistantAvatarSrc = "./assets/lumak-logo.png";
 
 const selectedFiles: File[] = [];
 const providerStorageKey = "lumak.providerConfig";
 const sessionStorageKey = "lumak.sessionId";
 const conversationStorageKey = "lumak.conversations";
 const projectStorageKey = "lumak.projects";
-const gatewayUrl = "ws://127.0.0.1:8765";
+const gatewayUrl = buildGatewayUrl(window.location);
 const reconnectDelayMs = 1600;
 const maxReconnectAttempts = 8;
 const customModelOptions = ["custom"];

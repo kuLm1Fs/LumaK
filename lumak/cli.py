@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import functools
 import http.server
+import os
 import shutil
 import socket
 import subprocess
@@ -76,6 +77,12 @@ def is_port_open(host: str, port: int) -> bool:
         return probe.connect_ex((host, port)) == 0
 
 
+def default_bind_host() -> str:
+    if os.getenv("CODESPACES", "").lower() == "true":
+        return "0.0.0.0"
+    return "127.0.0.1"
+
+
 def run_cli(args: Sequence[str]) -> int:
     from agent.CLI.app import main as cli_main
 
@@ -111,9 +118,10 @@ def run_tui(args: Sequence[str]) -> int:
 
 def run_web(args: Sequence[str]) -> int:
     parser = argparse.ArgumentParser(prog="lumak web", description="Run the LumaK Web UI and gateway.")
-    parser.add_argument("--host", default="127.0.0.1", help="Web UI host. Default: 127.0.0.1")
+    bind_host = default_bind_host()
+    parser.add_argument("--host", default=bind_host, help=f"Web UI host. Default: {bind_host}")
     parser.add_argument("--port", type=int, default=4173, help="Web UI port. Default: 4173")
-    parser.add_argument("--gateway-host", default="127.0.0.1", help="Gateway host. Default: 127.0.0.1")
+    parser.add_argument("--gateway-host", default=bind_host, help=f"Gateway host. Default: {bind_host}")
     parser.add_argument("--gateway-port", type=int, default=8765, help="Gateway port. Default: 8765")
     parser.add_argument("--workspace", default=str(Path.cwd()), help="Gateway workspace. Default: cwd")
     parsed = parser.parse_args(list(args))
