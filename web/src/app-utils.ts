@@ -38,9 +38,20 @@ export type ProjectRecord = {
 };
 
 export function buildGatewayUrl(
-  location: Pick<Location, "hostname" | "port" | "protocol">,
+  location: Pick<Location, "hostname" | "port" | "protocol" | "search">,
   gatewayPort = 8765,
+  overrideUrl?: string | null,
 ): string {
+  const cleanOverrideUrl = overrideUrl?.trim();
+  if (cleanOverrideUrl?.startsWith("ws://") || cleanOverrideUrl?.startsWith("wss://")) {
+    return cleanOverrideUrl;
+  }
+
+  const gatewayParam = new URLSearchParams(location.search).get("gateway")?.trim();
+  if (gatewayParam?.startsWith("ws://") || gatewayParam?.startsWith("wss://")) {
+    return gatewayParam;
+  }
+
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const localHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 

@@ -57,7 +57,8 @@ const providerStorageKey = "lumak.providerConfig";
 const sessionStorageKey = "lumak.sessionId";
 const conversationStorageKey = "lumak.conversations";
 const projectStorageKey = "lumak.projects";
-const gatewayUrl = buildGatewayUrl(window.location);
+const gatewayOverrideStorageKey = "lumak.gatewayUrl";
+const gatewayUrl = buildGatewayUrl(window.location, 8765, window.localStorage.getItem(gatewayOverrideStorageKey));
 const reconnectDelayMs = 1600;
 const maxReconnectAttempts = 8;
 const customModelOptions = ["custom"];
@@ -387,6 +388,7 @@ function renderAttachments(): void {
 function setGatewayState(text: string, state: "connected" | "connecting" | "error"): void {
   gatewayState.textContent = text;
   gatewayState.dataset.state = state;
+  gatewayState.title = gatewayUrl;
 }
 
 function updateSessionState(): void {
@@ -770,7 +772,17 @@ function connectGateway(): void {
     setComposerBusy(false);
 
     if (reconnectAttempts >= maxReconnectAttempts) {
-      appendMessage("无法连接本地 gateway，请确认已运行 `uv run python -m gateway.app`。", "assistant", "error");
+      appendMessage(
+        [
+          "无法连接 gateway。",
+          "",
+          `当前尝试连接：\`${gatewayUrl}\``,
+          "",
+          "请确认 gateway 正在运行，并且 Codespaces 已转发 8765 端口。也可以在页面 URL 后添加 `?gateway=wss://你的-gateway-地址` 手动指定。",
+        ].join("\n"),
+        "assistant",
+        "error",
+      );
       return;
     }
 

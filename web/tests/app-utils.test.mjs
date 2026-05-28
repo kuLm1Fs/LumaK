@@ -38,6 +38,7 @@ test("buildGatewayUrl uses localhost for local development", () => {
       hostname: "127.0.0.1",
       port: "4173",
       protocol: "http:",
+      search: "",
     }),
     "ws://127.0.0.1:8765",
   );
@@ -49,8 +50,37 @@ test("buildGatewayUrl maps Codespaces forwarded web port to gateway port", () =>
       hostname: "silver-space-codex-4173.app.github.dev",
       port: "",
       protocol: "https:",
+      search: "",
     }),
     "wss://silver-space-codex-8765.app.github.dev",
+  );
+});
+
+test("buildGatewayUrl supports an explicit query override", () => {
+  assert.equal(
+    buildGatewayUrl({
+      hostname: "silver-space-codex-4173.app.github.dev",
+      port: "",
+      protocol: "https:",
+      search: "?gateway=wss%3A%2F%2Fcustom-gateway.example.test",
+    }),
+    "wss://custom-gateway.example.test",
+  );
+});
+
+test("buildGatewayUrl supports a stored override", () => {
+  assert.equal(
+    buildGatewayUrl(
+      {
+        hostname: "silver-space-codex-4173.app.github.dev",
+        port: "",
+        protocol: "https:",
+        search: "",
+      },
+      8765,
+      "wss://stored-gateway.example.test",
+    ),
+    "wss://stored-gateway.example.test",
   );
 });
 
