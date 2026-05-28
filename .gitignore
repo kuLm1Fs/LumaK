@@ -26,8 +26,9 @@ sessions/
 
 # Build artifacts
 dist/
-!web/dist/
-!web/dist/**
+web/dist/
+web/dist-test/
+tui/dist/
 build/
 *.egg-info/
 coverage/
