@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import stringWidth from "string-width";
 
 import { renderInputFrame, renderMessageBox, renderToolPreview, taskMark } from "../dist/terminal-ui.js";
 
@@ -17,7 +18,7 @@ test("message and tool boxes keep every visible row aligned", () => {
     {
       kind: "message",
       role: "lumaK",
-      content: "A box should keep the right edge aligned with its top and bottom border.",
+      content: "Aloha! 👋 How can I help you today? Whether you need assistance with code, files, or anything else.",
     },
     48,
   );
@@ -116,5 +117,5 @@ function stripAnsi(text) {
 }
 
 function visibleLength(text) {
-  return [...stripAnsi(text)].length;
+  return stringWidth(stripAnsi(text));
 }

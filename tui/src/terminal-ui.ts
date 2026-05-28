@@ -463,7 +463,7 @@ export function renderInputFrame(input: string, status: AgentStatus, width: numb
   const truncatedInput = truncateToWidth(input, available);
   return [
     color.dim("─".repeat(width)),
-    `${prompt}${truncatedInput} `,
+    `${prompt}${truncatedInput}${busyText}`,
     color.dim("─".repeat(width)),
   ];
 }
@@ -545,11 +545,7 @@ function stripAnsi(text: string): string {
 }
 
 function visibleLength(text: string): number {
-  let width = 0;
-  for (const char of stripAnsi(text)) {
-    width += charWidth(char);
-  }
-  return width;
+  return stringWidth(stripAnsi(text));
 }
 
 function truncateVisible(text: string, width: number): string {
@@ -596,27 +592,5 @@ function fitColumn(text: string, width: number): string {
 }
 
 function charWidth(char: string): number {
-  const codePoint = char.codePointAt(0) || 0;
-  if (codePoint === 0) {
-    return 0;
-  }
-  if (codePoint < 32 || (codePoint >= 0x7f && codePoint < 0xa0)) {
-    return 0;
-  }
-  if (
-    codePoint >= 0x1100 &&
-    (codePoint <= 0x115f ||
-      codePoint === 0x2329 ||
-      codePoint === 0x232a ||
-      (codePoint >= 0x2e80 && codePoint <= 0xa4cf && codePoint !== 0x303f) ||
-      (codePoint >= 0xac00 && codePoint <= 0xd7a3) ||
-      (codePoint >= 0xf900 && codePoint <= 0xfaff) ||
-      (codePoint >= 0xfe10 && codePoint <= 0xfe19) ||
-      (codePoint >= 0xfe30 && codePoint <= 0xfe6f) ||
-      (codePoint >= 0xff00 && codePoint <= 0xff60) ||
-      (codePoint >= 0xffe0 && codePoint <= 0xffe6))
-  ) {
-    return 2;
-  }
-  return 1;
+  return stringWidth(char);
 }

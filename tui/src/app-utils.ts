@@ -25,7 +25,7 @@ export function wrapText(text: string, width: number): string[] {
 
   return wrapAnsi(text, width, {
     hard: true,
-    trim: false,
+    trim: true,
     wordWrap: true,
   }).split("\n");
 }
