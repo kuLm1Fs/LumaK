@@ -33,6 +33,10 @@ Run "lumak <command> --help" for command-specific options.
 """
 
 
+def log(component: str, message: str) -> None:
+    print(f"[{component}] {message}", flush=True)
+
+
 @contextmanager
 def patched_argv(argv: Sequence[str]) -> Iterator[None]:
     original = sys.argv[:]
@@ -72,9 +76,10 @@ def web_dist_dir() -> Path | None:
 
 
 def is_port_open(host: str, port: int) -> bool:
+    probe_host = "127.0.0.1" if host == "0.0.0.0" else host
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.settimeout(0.25)
-        return probe.connect_ex((host, port)) == 0
+        return probe.connect_ex((probe_host, port)) == 0
 
 
 def default_bind_host() -> str:
@@ -131,26 +136,31 @@ def run_web(args: Sequence[str]) -> int:
         print("error: Web UI is not built. Run `cd web && npm run build` first.", file=sys.stderr)
         return 1
 
+    log("web", f"serving dist from {web_root}")
+    log("web", f"workspace: {Path(parsed.workspace).resolve()}")
+
     gateway: subprocess.Popen[bytes] | None = None
     if is_port_open(parsed.gateway_host, parsed.gateway_port):
-        print(f"[gateway] reusing existing server on ws://{parsed.gateway_host}:{parsed.gateway_port}")
+        log("gateway", f"reusing existing server on ws://{parsed.gateway_host}:{parsed.gateway_port}")
     else:
+        gateway_command = [
+            sys.executable,
+            "-m",
+            "gateway.app",
+            "--host",
+            parsed.gateway_host,
+            "--port",
+            str(parsed.gateway_port),
+            "--workspace",
+            parsed.workspace,
+        ]
+        log("gateway", "starting " + " ".join(gateway_command))
         gateway = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "gateway.app",
-                "--host",
-                parsed.gateway_host,
-                "--port",
-                str(parsed.gateway_port),
-                "--workspace",
-                parsed.workspace,
-            ]
+            gateway_command,
         )
 
     if is_port_open(parsed.host, parsed.port):
-        print(f"[web] reusing existing server on http://{parsed.host}:{parsed.port}")
+        log("web", f"reusing existing server on http://{parsed.host}:{parsed.port}")
         if gateway is None:
             return 0
         try:

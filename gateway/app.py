@@ -5,6 +5,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
+import time
 import tomllib
 from typing import Any
 
@@ -33,6 +34,17 @@ broker = EventBroker()
 session_workspaces: dict[str, Path] = {}
 
 
+def log(message: str) -> None:
+    print(f"[gateway] {message}", flush=True)
+
+
+def connection_label(websocket: ServerConnection) -> str:
+    remote_address = getattr(websocket, "remote_address", None)
+    if isinstance(remote_address, tuple) and len(remote_address) >= 2:
+        return f"{remote_address[0]}:{remote_address[1]}"
+    return "unknown-peer"
+
+
 def configure_workspace(raw_workspace: str | None = None) -> Path:
     global WORKSPACE, MEMORY_ROOT, TRACE_ROOT, SKILLS_ROOT
 
@@ -40,6 +52,7 @@ def configure_workspace(raw_workspace: str | None = None) -> Path:
     WORKSPACE = workspace
     MEMORY_ROOT, TRACE_ROOT, SKILLS_ROOT = workspace_roots(workspace)
     session_workspaces.clear()
+    log(f"workspace configured: {workspace}")
     return workspace
 
 
@@ -179,6 +192,8 @@ async def run_chat(websocket: ServerConnection, message: dict[str, Any]) -> None
     max_tokens = int(message.get("max_tokens") or 1024)
     event_queue = broker.subscribe(session_id)
     forwarder = asyncio.create_task(forward_session_events(websocket, session_id, event_queue))
+    started_at = time.monotonic()
+    log(f"chat start session={session_id} workspace={workspace} chars={len(prompt)}")
 
     await send_json(
         websocket,
@@ -216,7 +231,10 @@ async def run_chat(websocket: ServerConnection, message: dict[str, Any]) -> None
                 "answer": response_to_text(response),
             },
         )
+        elapsed = time.monotonic() - started_at
+        log(f"chat complete session={session_id} elapsed={elapsed:.2f}s")
     except Exception as exc:
+        log(f"chat error session={session_id}: {exc}")
         await send_json(
             websocket,
             {
@@ -238,6 +256,7 @@ async def send_memory(websocket: ServerConnection, message: dict[str, Any]) -> N
         return
 
     workspace = workspace_for_session(session_id)
+    log(f"memory get session={session_id} workspace={workspace}")
     memory_root, _trace_root, _skills_root = workspace_roots(workspace)
     store = MemoryStore(memory_root)
     await send_json(
@@ -251,6 +270,7 @@ async def send_memory(websocket: ServerConnection, message: dict[str, Any]) -> N
 
 
 async def send_conversation_list(websocket: ServerConnection) -> None:
+    log(f"conversation list workspace={WORKSPACE}")
     store = MemoryStore(MEMORY_ROOT)
     await send_json(
         websocket,
@@ -268,6 +288,7 @@ async def send_conversation(websocket: ServerConnection, message: dict[str, Any]
         return
 
     store = MemoryStore(MEMORY_ROOT)
+    log(f"conversation get session={session_id}")
     await send_json(
         websocket,
         {
@@ -279,6 +300,7 @@ async def send_conversation(websocket: ServerConnection, message: dict[str, Any]
 
 
 async def send_project_list(websocket: ServerConnection) -> None:
+    log(f"project list workspace={WORKSPACE}")
     await send_json(
         websocket,
         {
@@ -311,6 +333,7 @@ async def send_trace(websocket: ServerConnection, message: dict[str, Any]) -> No
 
     workspace = workspace_for_session(session_id)
     _memory_root, trace_root, _skills_root = workspace_roots(workspace)
+    log(f"trace get session={session_id} trace_root={trace_root}")
 
     await send_json(
         websocket,
@@ -336,6 +359,7 @@ async def switch_project(websocket: ServerConnection, message: dict[str, Any]) -
         return
 
     session_workspaces[session_id] = workspace
+    log(f"project switch session={session_id} workspace={workspace}")
     await send_json(
         websocket,
         {
@@ -349,6 +373,7 @@ async def switch_project(websocket: ServerConnection, message: dict[str, Any]) -
 
 async def handle_message(websocket: ServerConnection, message: dict[str, Any]) -> None:
     message_type = message.get("type")
+    log(f"message type={message_type}")
 
     if message_type == "chat":
         await run_chat(websocket, message)
@@ -379,6 +404,8 @@ async def handle_message(websocket: ServerConnection, message: dict[str, Any]) -
 
 
 async def websocket_handler(websocket: ServerConnection) -> None:
+    label = connection_label(websocket)
+    log(f"connection open peer={label}")
     await send_json(websocket, {"type": "gateway.ready"})
 
     try:
@@ -386,17 +413,21 @@ async def websocket_handler(websocket: ServerConnection) -> None:
             try:
                 message = parse_message(raw_message)
             except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
+                log(f"message parse error peer={label}: {exc}")
                 await send_json(websocket, {"type": "error", "error": str(exc)})
                 continue
 
             await handle_message(websocket, message)
     except ConnectionClosed:
+        log(f"connection closed peer={label}")
         return
+    finally:
+        log(f"connection done peer={label}")
 
 
 async def serve_gateway(host: str = "127.0.0.1", port: int = 8765) -> None:
     async with serve(websocket_handler, host, port):
-        print(f"LumaK websocket gateway listening on ws://{host}:{port}")
+        log(f"listening on ws://{host}:{port}")
         await asyncio.Future()
 
 
