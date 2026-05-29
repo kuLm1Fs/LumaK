@@ -6,22 +6,19 @@ import json
 import os
 from pathlib import Path
 import time
-import tomllib
 from typing import Any
 
-from agent.config import AnthropicConfig, DeepSeekConfig, MiniMaxConfig, OpenAIConfig
 from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 
-from agent.LLM.anthropic_provider import AnthropicProvider
 from agent.CLI.app import response_to_text
-from agent.LLM.deepseek import DeepSeekProvider
-from agent.LLM.minimax import MinimaxProvider
-from agent.LLM.openai_compatible import OpenAICompatibleProvider
 from agent.memory.store import MemoryStore
 from agent.runtime.agent.agent import Agent, AgentConfig
 from agent.trace.trace import make_session_id
 from gateway.events import EventBroker, LiveEventHook
+from gateway.llm import build_request_llm_client
+from gateway.state import GatewayState
+from gateway.state import resolve_workspace_path
 from gateway.trace_reader import read_trace_events
 
 
@@ -29,9 +26,10 @@ WORKSPACE = Path.cwd()
 MEMORY_ROOT = WORKSPACE / ".memory"
 TRACE_ROOT = WORKSPACE / ".trace"
 SKILLS_ROOT = WORKSPACE / ".skills"
+state = GatewayState(WORKSPACE)
 
 broker = EventBroker()
-session_workspaces: dict[str, Path] = {}
+session_workspaces = state.session_workspaces
 
 
 def log(message: str) -> None:
@@ -48,99 +46,31 @@ def connection_label(websocket: ServerConnection) -> str:
 def configure_workspace(raw_workspace: str | None = None) -> Path:
     global WORKSPACE, MEMORY_ROOT, TRACE_ROOT, SKILLS_ROOT
 
-    workspace = resolve_workspace_path(raw_workspace or os.getenv("LUMAK_WORKSPACE", "") or str(Path.cwd()))
+    workspace = state.configure_default_workspace(raw_workspace or os.getenv("LUMAK_WORKSPACE", "") or str(Path.cwd()))
     WORKSPACE = workspace
-    MEMORY_ROOT, TRACE_ROOT, SKILLS_ROOT = workspace_roots(workspace)
-    session_workspaces.clear()
+    MEMORY_ROOT = state.memory_root
+    TRACE_ROOT = state.trace_root
+    SKILLS_ROOT = state.skills_root
     log(f"workspace configured: {workspace}")
     return workspace
 
 
 def workspace_for_session(session_id: str) -> Path:
-    return session_workspaces.get(session_id, WORKSPACE)
+    return state.workspace_for_session(session_id)
 
 
-def resolve_workspace_path(raw_path: str) -> Path:
-    workspace = Path(raw_path).expanduser().resolve()
-    if not workspace.exists():
-        raise ValueError(f"workspace does not exist: {workspace}")
-    if not workspace.is_dir():
-        raise ValueError(f"workspace is not a directory: {workspace}")
-    return workspace
-
-
-def workspace_roots(workspace: Path) -> tuple[Path, Path, Path]:
-    return workspace / ".memory", workspace / ".trace", workspace / ".skills"
-
-
-def workspace_name(workspace: Path) -> str:
-    pyproject_path = workspace / "pyproject.toml"
-    if pyproject_path.exists():
-        try:
-            pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-            name = pyproject.get("project", {}).get("name")
-            if isinstance(name, str) and name.strip():
-                return name.strip()
-        except (OSError, tomllib.TOMLDecodeError):
-            pass
-    return workspace.name
+def memory_root_for_session(session_id: str) -> Path:
+    if session_id in session_workspaces:
+        return state.memory_root_for_session(session_id)
+    return MEMORY_ROOT
 
 
 def build_project_detail(workspace: Path | None = None) -> dict[str, Any]:
-    workspace = workspace or WORKSPACE
-    return {
-        "id": "current",
-        "name": workspace_name(workspace),
-        "path": str(workspace),
-        "active": True,
-        "memory_root": str(workspace / ".memory"),
-        "trace_root": str(workspace / ".trace"),
-        "skills_root": str(workspace / ".skills"),
-    }
+    return state.project_detail(workspace or WORKSPACE)
 
 
 def build_project_list(workspace: Path | None = None) -> list[dict[str, Any]]:
-    project = build_project_detail(workspace or WORKSPACE)
-    return [
-        {
-            "id": project["id"],
-            "name": project["name"],
-            "path": project["path"],
-            "active": project["active"],
-        }
-    ]
-
-
-def build_request_llm_client(message: dict[str, Any]) -> object | None:
-    raw_config = message.get("provider_config")
-    if not isinstance(raw_config, dict):
-        return None
-
-    provider = str(raw_config.get("provider", "")).strip().lower()
-    api_key = str(raw_config.get("api_key", "")).strip()
-    model = str(raw_config.get("model", "")).strip()
-    base_url = str(raw_config.get("base_url", "")).strip()
-
-    if not provider or not api_key or not model:
-        return None
-
-    if provider == "minimax":
-        if not base_url:
-            return None
-        return MinimaxProvider(MiniMaxConfig(api_key=api_key, base_url=base_url, model_id=model))
-    if provider == "anthropic":
-        return AnthropicProvider(AnthropicConfig(api_key=api_key, base_url=base_url, model_id=model))
-    if provider == "openai":
-        return OpenAICompatibleProvider(OpenAIConfig(api_key=api_key, base_url=base_url, model_id=model))
-    if provider == "deepseek":
-        return DeepSeekProvider(DeepSeekConfig(api_key=api_key, base_url=base_url or "https://api.deepseek.com", model_id=model))
-    if provider == "custom":
-        if not base_url:
-            return None
-        return OpenAICompatibleProvider(OpenAIConfig(api_key=api_key, base_url=base_url, model_id=model))
-
-    supported = "anthropic, custom, deepseek, minimax, openai"
-    raise ValueError(f"Unsupported request provider: {provider}. Supported: {supported}")
+    return state.project_list(workspace or WORKSPACE)
 
 
 def dumps(message: dict[str, Any]) -> str:
@@ -188,7 +118,7 @@ async def run_chat(websocket: ServerConnection, message: dict[str, Any]) -> None
 
     session_id = str(message.get("session_id") or make_session_id())
     workspace = workspace_for_session(session_id)
-    memory_root, _trace_root, skills_root = workspace_roots(workspace)
+    memory_root, _trace_root, skills_root = state.roots_for_session(session_id)
     max_tokens = int(message.get("max_tokens") or 1024)
     event_queue = broker.subscribe(session_id)
     forwarder = asyncio.create_task(forward_session_events(websocket, session_id, event_queue))
@@ -257,8 +187,7 @@ async def send_memory(websocket: ServerConnection, message: dict[str, Any]) -> N
 
     workspace = workspace_for_session(session_id)
     log(f"memory get session={session_id} workspace={workspace}")
-    memory_root, _trace_root, _skills_root = workspace_roots(workspace)
-    store = MemoryStore(memory_root)
+    store = MemoryStore(memory_root_for_session(session_id))
     await send_json(
         websocket,
         {
@@ -287,8 +216,9 @@ async def send_conversation(websocket: ServerConnection, message: dict[str, Any]
         await send_json(websocket, {"type": "error", "error": "session_id is required"})
         return
 
-    store = MemoryStore(MEMORY_ROOT)
-    log(f"conversation get session={session_id}")
+    workspace = workspace_for_session(session_id)
+    store = MemoryStore(memory_root_for_session(session_id))
+    log(f"conversation get session={session_id} workspace={workspace}")
     await send_json(
         websocket,
         {
@@ -332,7 +262,7 @@ async def send_trace(websocket: ServerConnection, message: dict[str, Any]) -> No
         return
 
     workspace = workspace_for_session(session_id)
-    _memory_root, trace_root, _skills_root = workspace_roots(workspace)
+    _memory_root, trace_root, _skills_root = state.roots_for_session(session_id)
     log(f"trace get session={session_id} trace_root={trace_root}")
 
     await send_json(
@@ -353,12 +283,11 @@ async def switch_project(websocket: ServerConnection, message: dict[str, Any]) -
         return
 
     try:
-        workspace = resolve_workspace_path(path)
+        workspace = state.switch_session_workspace(session_id, path)
     except ValueError as exc:
         await send_json(websocket, {"type": "error", "session_id": session_id, "error": str(exc)})
         return
 
-    session_workspaces[session_id] = workspace
     log(f"project switch session={session_id} workspace={workspace}")
     await send_json(
         websocket,

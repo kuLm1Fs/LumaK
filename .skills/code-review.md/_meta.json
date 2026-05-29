@@ -1,0 +1,7 @@
+{
+  "ownerId": "kn70pywhg0fyz996kpa8xj89s57yhv26",
+  "name": "code-review",
+  "version": "1.0.0",
+  "publishedAt": 1748390400000,
+  "triggers": ["review", "审查", "code review", "风险"]
+}

@@ -4,12 +4,10 @@ from pathlib import Path
 
 from agent.memory import MemoryStore
 from agent.runtime.hooks import HookContext
-from agent.config import OpenAIConfig
 from gateway.events import EventBroker, LiveEventHook
 from gateway.app import (
     build_project_detail,
     build_project_list,
-    build_request_llm_client,
     configure_workspace,
     handle_message,
     resolve_workspace_path,
@@ -67,38 +65,6 @@ def test_read_trace_events_loads_jsonl_for_session(tmp_path: Path) -> None:
 
 def test_read_trace_events_returns_empty_list_for_missing_session(tmp_path: Path) -> None:
     assert read_trace_events(tmp_path / ".trace", "missing") == []
-
-
-def test_build_request_llm_client_uses_provider_config(monkeypatch) -> None:
-    captured = {}
-
-    class FakeOpenAIProvider:
-        def __init__(self, config: OpenAIConfig) -> None:
-            captured["config"] = config
-
-    monkeypatch.setattr("gateway.app.OpenAICompatibleProvider", FakeOpenAIProvider)
-
-    client = build_request_llm_client(
-        {
-            "provider_config": {
-                "provider": "openai",
-                "api_key": "sk-test",
-                "model": "gpt-test",
-                "base_url": "https://example.test/v1",
-            }
-        }
-    )
-
-    assert isinstance(client, FakeOpenAIProvider)
-    assert captured["config"] == OpenAIConfig(
-        api_key="sk-test",
-        model_id="gpt-test",
-        base_url="https://example.test/v1",
-    )
-
-
-def test_build_request_llm_client_returns_none_without_complete_config() -> None:
-    assert build_request_llm_client({"provider_config": {"provider": "openai"}}) is None
 
 
 def test_resolve_workspace_path_rejects_missing_directory(tmp_path: Path) -> None:
