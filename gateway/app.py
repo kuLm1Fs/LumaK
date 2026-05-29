@@ -120,6 +120,7 @@ async def run_chat(websocket: ServerConnection, message: dict[str, Any]) -> None
     workspace = workspace_for_session(session_id)
     memory_root, _trace_root, skills_root = state.roots_for_session(session_id)
     max_tokens = int(message.get("max_tokens") or 1024)
+    max_steps = int(message.get("max_steps") or 12)
     event_queue = broker.subscribe(session_id)
     forwarder = asyncio.create_task(forward_session_events(websocket, session_id, event_queue))
     started_at = time.monotonic()
@@ -140,6 +141,7 @@ async def run_chat(websocket: ServerConnection, message: dict[str, Any]) -> None
                 workspace=workspace,
                 session_id=session_id,
                 max_tokens=max_tokens,
+                max_steps=max_steps,
                 llm_client=build_request_llm_client(message),
                 memory_store=memory_store,
                 skills_root=skills_root,
@@ -157,12 +159,19 @@ async def run_chat(websocket: ServerConnection, message: dict[str, Any]) -> None
         if not answer:
             blocks = getattr(response, "content", [])
             tool_uses = [b for b in blocks if getattr(b, "type", None) == "tool_use"]
-            text_blocks = [b for b in blocks if getattr(b, "type", None) == "text"]
-            if tool_uses and not text_blocks:
+            stop_reason = getattr(response, "stop_reason", "")
+            if tool_uses:
                 tool_names = ", ".join(getattr(b, "name", "?") for b in tool_uses)
-                answer = f"已调用工具：{tool_names}"
-            elif getattr(response, "stop_reason", None) == "max_tokens":
+                if stop_reason == "max_steps":
+                    answer = f"Agent 达到最大步数，以下工具调用未完成：{tool_names}"
+                elif stop_reason == "max_tokens":
+                    answer = f"响应被截断（超出 max_tokens），以下工具调用未完成：{tool_names}"
+                else:
+                    answer = f"已调用工具：{tool_names}"
+            elif stop_reason == "max_tokens":
                 answer = "响应被截断（超出 max_tokens），请重试或增加 max_tokens。"
+            elif stop_reason == "max_steps":
+                answer = "Agent 达到最大步数，任务未完成。请简化问题或分多步提问。"
             else:
                 answer = "Agent 已完成，但没有返回文本。"
 

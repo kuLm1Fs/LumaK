@@ -132,9 +132,9 @@ def emit_skills_selected(
 
 def agent_loop(
         messages: list, 
-        max_tokens: int = 1024, 
+        max_tokens: int = 4096, 
         workspace: Path = ROOT_DIR, 
-        max_steps: int = 6,
+        max_steps: int = 12,
         session_id: str | None = None,
         llm_client=None,
         hooks: list[Hook] | None = None,
@@ -270,7 +270,10 @@ def agent_loop(
             emit_hook(
                 hook_manager,
                 "session.end",
-                {"final_output": final_text},
+                {
+                    "final_output": final_text,
+                    "stop_reason": response.stop_reason,
+                },
                 session_id=session_id,
                 workspace=workspace,
             )
@@ -321,7 +324,10 @@ def agent_loop(
     emit_hook(
         hook_manager,
         "session.end",
-        {"final_output": "max steps reached"},
+        {
+            "final_output": "max steps reached",
+            "stop_reason": "max_steps",
+        },
         session_id=session_id,
         workspace=workspace,
     )

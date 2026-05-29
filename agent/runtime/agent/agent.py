@@ -11,8 +11,8 @@ from agent.memory.store import MemoryStore
 @dataclass(frozen=True)
 class AgentConfig:
     workspace: Path
-    max_steps: int = 6
-    max_tokens: int = 1024
+    max_steps: int = 12
+    max_tokens: int = 4096
     session_id: str | None = None
     llm_client: object | None = None
     hooks: list[Hook] | None = None

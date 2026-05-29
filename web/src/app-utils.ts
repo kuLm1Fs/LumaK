@@ -3,6 +3,8 @@ export type ProviderConfig = {
   baseUrl?: string;
   model: string;
   provider: string;
+  maxTokens?: number;
+  maxSteps?: number;
 };
 
 export type AttachmentText =
@@ -22,6 +24,7 @@ export type ChatPayload = {
   message: string;
   session_id: string;
   max_tokens: number;
+  max_steps?: number;
   provider_config?: {
     api_key: string;
     base_url?: string;
@@ -134,7 +137,8 @@ export function buildChatPayload(
     type: "chat",
     message,
     session_id: sessionId,
-    max_tokens: 1024,
+    max_tokens: providerConfig?.maxTokens ?? 4096,
+    max_steps: providerConfig?.maxSteps ?? 12,
   };
 
   if (providerConfig?.apiKey && providerConfig.model && providerConfig.provider) {

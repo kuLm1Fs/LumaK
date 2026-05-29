@@ -71,6 +71,8 @@
           </article>
         </section>
 
+        <div class="live-status" id="liveStatus" hidden></div>
+
         <form class="composer" aria-label="发送消息">
           <div class="attachment-row" id="attachmentRow" hidden></div>
           <div class="composer-box">
@@ -124,6 +126,16 @@
         <label class="field custom-model-field" id="customModelField" hidden>
           <span>自定义模型</span>
           <input id="customModelInput" name="customModel" type="text" placeholder="输入模型名称，例如 my-model" />
+        </label>
+
+        <label class="field">
+          <span>Max Tokens（单次模型回复输出上限）</span>
+          <input id="maxTokensInput" name="maxTokens" type="number" min="256" max="32768" step="128" placeholder="4096" />
+        </label>
+
+        <label class="field">
+          <span>Max Steps（Agent 最大工具调用轮数）</span>
+          <input id="maxStepsInput" name="maxSteps" type="number" min="1" max="50" step="1" placeholder="12" />
         </label>
 
         <button class="provider-submit" type="submit">保存配置</button>

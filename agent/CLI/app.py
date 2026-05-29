@@ -16,7 +16,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-tokens",
         type=int,
-        default=1024,
+        default=4096,
         help="Maximum tokens to request from the model.",
     )
     return parser

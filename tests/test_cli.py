@@ -12,7 +12,7 @@ def test_cli_parser_import_does_not_require_model_environment(monkeypatch) -> No
     parser = cli_app.build_parser()
 
     args = parser.parse_args([])
-    assert args.max_tokens == 1024
+    assert args.max_tokens == 4096
 
 
 def test_cli_parser_rejects_removed_tui_flag() -> None:

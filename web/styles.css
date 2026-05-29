@@ -662,6 +662,30 @@ a {
   padding: 0 min(6vw, 72px) 30px;
 }
 
+.live-status {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 6px 0 12px;
+  transition: opacity 120ms ease;
+}
+
+.live-status::after {
+  content: "";
+  animation: live-dots 1.6s steps(3, end) infinite;
+}
+
+@keyframes live-dots {
+  0%   { content: ""; }
+  33%  { content: "."; }
+  66%  { content: ".."; }
+  100% { content: "..."; }
+}
+
+.live-status[hidden] {
+  display: none;
+}
+
 .composer-box {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) auto 40px;

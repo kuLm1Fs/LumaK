@@ -32,11 +32,14 @@ const baseUrlInput = getElement<HTMLInputElement>("#baseUrlInput");
 const modelSelect = getElement<HTMLSelectElement>("#modelSelect");
 const customModelField = getElement<HTMLLabelElement>("#customModelField");
 const customModelInput = getElement<HTMLInputElement>("#customModelInput");
+const maxTokensInput = getElement<HTMLInputElement>("#maxTokensInput");
+const maxStepsInput = getElement<HTMLInputElement>("#maxStepsInput");
 const providerState = getElement<HTMLSpanElement>("#providerState");
 const providerDialog = getElement<HTMLDialogElement>("#providerDialog");
 const openProviderDialog = getElement<HTMLButtonElement>("#openProviderDialog");
 const closeProviderDialog = getElement<HTMLButtonElement>("#closeProviderDialog");
 const gatewayState = getElement<HTMLSpanElement>("#gatewayState");
+const liveStatus = getElement<HTMLDivElement>("#liveStatus");
 const sessionState = getElement<HTMLSpanElement>("#sessionState");
 const sendButton = getElement<HTMLButtonElement>(".send-button");
 const newConversationButton = getElement<HTMLButtonElement>("#newConversationButton");
@@ -75,6 +78,8 @@ type ProviderConfig = {
   baseUrl?: string;
   model: string;
   provider: string;
+  maxTokens?: number;
+  maxSteps?: number;
 };
 
 type GatewayMessage =
@@ -355,7 +360,9 @@ function renderProviderState(config?: ProviderConfig): void {
   }
 
   const baseUrlLabel = config.baseUrl ? ` · ${config.baseUrl}` : "";
-  providerState.textContent = `${getProviderLabel(config.provider)} · ${config.model} · ${maskApiKey(config.apiKey)}${baseUrlLabel}`;
+  const maxTokensLabel = config.maxTokens ? ` · max_tokens=${config.maxTokens}` : "";
+  const maxStepsLabel = config.maxSteps ? ` · max_steps=${config.maxSteps}` : "";
+  providerState.textContent = `${getProviderLabel(config.provider)} · ${config.model} · ${maskApiKey(config.apiKey)}${baseUrlLabel}${maxTokensLabel}${maxStepsLabel}`;
 }
 
 function loadProviderConfig(): void {
@@ -370,6 +377,8 @@ function loadProviderConfig(): void {
   providerSelect.value = config.provider;
   apiKeyInput.value = config.apiKey;
   baseUrlInput.value = config.baseUrl ?? "";
+  maxTokensInput.value = config.maxTokens?.toString() ?? "";
+  maxStepsInput.value = config.maxSteps?.toString() ?? "";
   setModelOptions(config.provider, config.model);
   renderProviderState(config);
 }
@@ -421,6 +430,14 @@ function setComposerBusy(isBusy: boolean): void {
   waitingForResponse = isBusy;
   promptInput.disabled = isBusy;
   sendButton.disabled = isBusy;
+  if (!isBusy) {
+    liveStatus.hidden = true;
+  }
+}
+
+function setLiveStatus(text: string): void {
+  liveStatus.textContent = text;
+  liveStatus.hidden = false;
 }
 
 function addCodeCopyButtons(container: HTMLElement): void {
@@ -701,8 +718,16 @@ function formatAgentEvent(message: Extract<GatewayMessage, { type: "agent.event"
       const toolName = String(payload.tool_name ?? "unknown");
       return payload.success === false ? `工具调用失败：${toolName}` : `工具调用完成：${toolName}`;
     }
-    case "session.end":
-      return null;
+    case "session.end": {
+      const stopReason = String(payload.stop_reason ?? "");
+      if (stopReason === "max_steps") {
+        return "达到最大步数，任务已结束";
+      }
+      if (stopReason === "max_tokens") {
+        return "响应被截断（超出 max_tokens），请增加 max_tokens 后重试";
+      }
+      return "任务完成";
+    }
     default:
       return null;
   }
@@ -725,6 +750,21 @@ function handleGatewayMessage(message: GatewayMessage): void {
     const eventText = formatAgentEvent(message);
     if (eventText) {
       appendMessage(eventText, "assistant", "event", message.session_id);
+    }
+
+    switch (message.event) {
+      case "model.request":
+        setLiveStatus(`正在请求模型：${String(message.payload?.model ?? "default")}`);
+        break;
+      case "tool.before":
+        setLiveStatus(`正在调用工具：${String(message.payload?.tool_name ?? "unknown")}`);
+        break;
+      case "tool.after":
+        setLiveStatus("等待模型响应...");
+        break;
+      case "session.end":
+        liveStatus.hidden = true;
+        break;
     }
     return;
   }
@@ -1045,6 +1085,14 @@ providerForm.addEventListener("submit", (event) => {
   };
   if (baseUrl) {
     config.baseUrl = baseUrl;
+  }
+  const maxTokens = parseInt(maxTokensInput.value.trim(), 10);
+  if (maxTokens > 0) {
+    config.maxTokens = maxTokens;
+  }
+  const maxSteps = parseInt(maxStepsInput.value.trim(), 10);
+  if (maxSteps > 0) {
+    config.maxSteps = maxSteps;
   }
 
   window.localStorage.setItem(providerStorageKey, JSON.stringify(config));

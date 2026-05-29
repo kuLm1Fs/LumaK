@@ -63,7 +63,8 @@ def create_rollback_hook(rollback: SessionRollback) -> Hook:
                 rollback.snapshot(tool_name, tool_input)
         elif context.event == "session.end":
             output = context.payload.get("final_output", "")
-            if not output or output == "max steps reached":
+            stop_reason = context.payload.get("stop_reason", "")
+            if not output or stop_reason in ("max_tokens", "max_steps"):
                 restored = rollback.rollback()
                 if restored:
                     print(f"[rollback] reverted {len(restored)} file(s): {', '.join(restored)}")
