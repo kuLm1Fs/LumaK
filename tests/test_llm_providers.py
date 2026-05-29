@@ -49,7 +49,7 @@ def test_openai_adapter_converts_tools_and_tool_results() -> None:
                     {
                         "type": "tool_result",
                         "tool_use_id": "tool-1",
-                        "content": "# CodeAnalyst",
+                        "content": "# LumaK",
                     }
                 ],
             },
@@ -75,7 +75,7 @@ def test_openai_adapter_converts_tools_and_tool_results() -> None:
     assert calls[0]["messages"][2] == {
         "role": "tool",
         "tool_call_id": "tool-1",
-        "content": "# CodeAnalyst",
+        "content": "# LumaK",
     }
     assert calls[0]["tools"][0]["function"]["parameters"]["required"] == ["path"]
 

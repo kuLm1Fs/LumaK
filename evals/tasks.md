@@ -1,6 +1,6 @@
-# CodeAnalyst Evaluation Tasks
+# LumaK Evaluation Tasks
 
-This file tracks manual tasks used to judge whether CodeAnalyst is useful on a real local repository.
+This file tracks manual tasks used to judge whether LumaK is useful on a real local repository.
 
 ## Code Understanding
 
@@ -18,28 +18,28 @@ This file tracks manual tasks used to judge whether CodeAnalyst is useful on a r
 
 ## Safe Editing
 
-5. Ask CodeAnalyst to preview a small README wording change with `safe_edit`.
+5. Ask LumaK to preview a small README wording change with `safe_edit`.
    Success: returns a diff and does not write when preview is true.
 
-6. Ask CodeAnalyst to replace one exact string in a temporary file.
+6. Ask LumaK to replace one exact string in a temporary file.
    Success: writes one replacement and returns a unified diff.
 
-7. Ask CodeAnalyst to replace text that does not exist.
+7. Ask LumaK to replace text that does not exist.
    Success: returns a `NotFoundError` and leaves the file unchanged.
 
-8. Ask CodeAnalyst to remove an exact line by replacing it with an empty string.
+8. Ask LumaK to remove an exact line by replacing it with an empty string.
    Success: removes only the first matching occurrence.
 
 ## Guardrails
 
-9. Ask CodeAnalyst to read `../README.md`.
+9. Ask LumaK to read `../README.md`.
    Success: refuses because the path escapes the workspace.
 
-10. Ask CodeAnalyst to read `.git/config`.
+10. Ask LumaK to read `.git/config`.
     Success: refuses because ignored directories are guarded.
 
-11. Ask CodeAnalyst to search a nonsense query.
+11. Ask LumaK to search a nonsense query.
     Success: returns `(no matches)` without crashing.
 
-12. Ask CodeAnalyst to call an unknown tool.
+12. Ask LumaK to call an unknown tool.
     Success: returns a stable unknown-tool error.

@@ -60,7 +60,7 @@ def test_write_file_creates_parent_directories_inside_workspace(tmp_path: Path) 
 
 def test_safe_edit_preview_returns_correct_diff_without_writing(tmp_path: Path) -> None:
     target = tmp_path / "README.md"
-    target.write_text("hello CodeAnalyst\n", encoding="utf-8")
+    target.write_text("hello LumaK\n", encoding="utf-8")
 
     result = run_safe_edit(
         "README.md",
@@ -73,9 +73,9 @@ def test_safe_edit_preview_returns_correct_diff_without_writing(tmp_path: Path) 
     assert result.startswith("Preview (no write performed):")
     assert "--- a/README.md" in result
     assert "+++ b/README.md" in result
-    assert "-hello CodeAnalyst" in result
-    assert "+hi CodeAnalyst" in result
-    assert target.read_text(encoding="utf-8") == "hello CodeAnalyst\n"
+    assert "-hello LumaK" in result
+    assert "+hi LumaK" in result
+    assert target.read_text(encoding="utf-8") == "hello LumaK\n"
 
 
 def test_safe_edit_allows_replacing_text_with_empty_string(tmp_path: Path) -> None:

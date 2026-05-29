@@ -1,44 +1,18 @@
-/**
- * Markdown rendering utilities using marked + DOMPurify.
- * 
- * Supports full CommonMark + GFM (GitHub Flavored Markdown):
- * - Headings (# ## ### etc.)
- * - Bold, italic, strikethrough
- * - Links [text](url)
- * - Images ![alt](url)
- * - Code blocks with syntax highlighting class
- * - Tables
- * - Task lists
- * - Blockquotes
- * - Inline code
- */
-
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
-// Configure marked for GFM support
 marked.setOptions({
   gfm: true,
   breaks: true,
 });
 
-/**
- * Render markdown string to sanitized HTML.
- * 
- * @param markdown - Raw markdown text
- * @returns Sanitized HTML string safe for innerHTML
- */
-export function renderMarkdown(markdown: string): string {
-  if (!markdown || typeof markdown !== "string") {
-    return "";
-  }
-
-  // Convert markdown to HTML
-  const rawHtml = marked.parse(markdown, { async: false }) as string;
-
-  // Sanitize to prevent XSS attacks
-  // DOMPurify requires DOM context in browser, returns string
-  const cleanHtml = DOMPurify.sanitize(rawHtml, {
+function sanitize(html: string): string {
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.nodeName === "A" && node.hasAttribute("target")) {
+      node.setAttribute("rel", "noopener noreferrer");
+    }
+  });
+  const clean = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "h1", "h2", "h3", "h4", "h5", "h6",
       "p", "br", "hr",
@@ -48,24 +22,33 @@ export function renderMarkdown(markdown: string): string {
       "a", "img",
       "strong", "em", "del", "s",
       "table", "thead", "tbody", "tr", "th", "td",
-      "input", // for task lists
+      "input",
       "span", "div",
     ],
     ALLOWED_ATTR: [
       "href", "src", "alt", "title",
       "class", "id",
-      "type", "checked", "disabled", // for task list checkboxes
-      "target", "rel",
+      "type", "checked", "disabled",
+      "target",
     ],
-    // Force all links to open in new tab safely
     ADD_ATTR: ["target"],
     FORCE_BODY: false,
-    // Prevent DOM clobbering
     SANITIZE_DOM: true,
     KEEP_CONTENT: true,
   });
+  DOMPurify.removeHook("afterSanitizeAttributes");
+  return clean;
+}
 
-  return cleanHtml;
+export function renderMarkdown(markdown: string): string {
+  if (!markdown || typeof markdown !== "string") {
+    return "";
+  }
+
+  const rawHtml = marked.parse(markdown, { async: false }) as string;
+  const cleanHtml = sanitize(rawHtml);
+
+  return `<div class="agent-message-content">${cleanHtml}</div>`;
 }
 
 /**
@@ -73,18 +56,16 @@ export function renderMarkdown(markdown: string): string {
  * Call this after rendering markdown to enhance code blocks.
  */
 export function addCodeCopyButtons(container: HTMLElement): void {
-  container.querySelectorAll<HTMLElement>("pre.code-block").forEach((block) => {
-    // Check if button already exists
-    if (block.querySelector(".copy-code-button")) {
-      return;
-    }
+  container.querySelectorAll<HTMLElement>("pre > code").forEach((codeBlock) => {
+    const pre = codeBlock.parentElement;
+    if (!pre || pre.querySelector(".copy-code-button")) return;
 
     const button = document.createElement("button");
     button.className = "copy-code-button";
     button.type = "button";
     button.textContent = "复制";
     button.addEventListener("click", async () => {
-      const code = block.querySelector("code")?.textContent ?? "";
+      const code = codeBlock.textContent ?? "";
       try {
         await navigator.clipboard.writeText(code);
         button.textContent = "已复制";
@@ -95,7 +76,8 @@ export function addCodeCopyButtons(container: HTMLElement): void {
         button.textContent = "复制失败";
       }
     });
-    block.append(button);
+    pre.style.position = "relative";
+    pre.append(button);
   });
 }
 

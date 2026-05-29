@@ -49,14 +49,14 @@ def response(stop_reason: str, content: list[object]):
 
 def test_agent_loop_uses_injected_llm_client_for_tool_calling(tmp_path: Path) -> None:
     readme = tmp_path / "README.md"
-    readme.write_text("# CodeAnalyst\n", encoding="utf-8")
+    readme.write_text("# LumaK\n", encoding="utf-8")
     fake_client = FakeLLMClient(
         [
             response(
                 "tool_use",
                 [tool_use_block("tool-1", "read_file", {"path": "README.md"})],
             ),
-            response("end_turn", [text_block("README says CodeAnalyst.")]),
+            response("end_turn", [text_block("README says LumaK.")]),
         ]
     )
     messages = [{"role": "user", "content": "Read the README"}]
@@ -68,7 +68,7 @@ def test_agent_loop_uses_injected_llm_client_for_tool_calling(tmp_path: Path) ->
         llm_client=fake_client,
     )
 
-    assert response_to_text(result) == "README says CodeAnalyst."
+    assert response_to_text(result) == "README says LumaK."
     assert len(fake_client.messages.calls) == 2
     assert fake_client.messages.calls[0]["model"] == "fake-model"
     assert messages[-2] == {
@@ -77,7 +77,7 @@ def test_agent_loop_uses_injected_llm_client_for_tool_calling(tmp_path: Path) ->
             {
                 "type": "tool_result",
                 "tool_use_id": "tool-1",
-                "content": "# CodeAnalyst",
+                "content": "# LumaK",
             }
         ],
     }
@@ -109,7 +109,7 @@ def test_agent_loop_loads_and_persists_session_memory(tmp_path: Path) -> None:
 
 
 def test_agent_loop_does_not_persist_tool_results_to_session_memory(tmp_path: Path) -> None:
-    (tmp_path / "README.md").write_text("# CodeAnalyst\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("# LumaK\n", encoding="utf-8")
     store = MemoryStore(tmp_path / ".memory")
     fake_client = FakeLLMClient(
         [

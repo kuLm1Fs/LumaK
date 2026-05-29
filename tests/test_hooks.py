@@ -150,7 +150,7 @@ def test_agent_loop_emits_lifecycle_hooks(tmp_path: Path) -> None:
 
 
 def test_agent_loop_emits_tool_hooks(tmp_path: Path) -> None:
-    (tmp_path / "README.md").write_text("# CodeAnalyst\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("# LumaK\n", encoding="utf-8")
     events = []
     fake_client = FakeLLMClient(
         [
@@ -180,7 +180,7 @@ def test_agent_loop_emits_tool_hooks(tmp_path: Path) -> None:
     }
     assert tool_after[0]["tool_name"] == "read_file"
     assert tool_after[0]["success"] is True
-    assert "# CodeAnalyst" in tool_after[0]["output"]
+    assert "# LumaK" in tool_after[0]["output"]
     assert isinstance(tool_after[0]["duration_ms"], float)
 
 

@@ -1,6 +1,6 @@
-# 为 CodeAnalyst 贡献
+# 为 LumaK 贡献
 
-感谢你帮助改善 CodeAnalyst。
+感谢你帮助改善 LumaK。
 
 ## 开发环境设置
 
@@ -24,7 +24,7 @@ uv run pytest
 
 ## 项目优先级
 
-CodeAnalyst 目前专注于一个小而精的生产级核心：
+LumaK 目前专注于一个小而精的生产级核心：
 
 - 本地工作区理解
 - 受限的文件操作工具

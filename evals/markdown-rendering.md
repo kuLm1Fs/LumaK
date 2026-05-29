@@ -23,7 +23,7 @@ The web frontend (`web/`) renders AI assistant responses via `renderMarkdownLite
 - Task lists (`- [ ]`)
 - Horizontal rules (`---`)
 
-Since the project is a chat UI for an AI coding assistant (lumaK/CodeAnalyst), the LLM frequently emits rich Markdown that is silently dropped or rendered as plaintext, degrading readability.
+Since the project is a chat UI for an AI coding assistant (LumaK), the LLM frequently emits rich Markdown that is silently dropped or rendered as plaintext, degrading readability.
 
 The rendering entry point in `web/src/app.ts:471`:
 ```ts
