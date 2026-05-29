@@ -4,7 +4,7 @@ import {
   buildGatewayUrlCandidates,
   createProjectRecord,
   createProjectRecordFromPath,
-  renderMarkdownLite,
+  renderMarkdown,
   type AttachmentText,
   type ProjectRecord,
 } from "./app-utils";
@@ -83,6 +83,8 @@ type GatewayMessage =
   | { type: "chat.response"; session_id: string; answer: string }
   | { type: "agent.event"; event: string; payload?: Record<string, unknown>; session_id: string }
   | { type: "memory.response"; session_id: string; messages: unknown[] }
+  | { type: "conversation.list.response"; conversations: { id: string; title: string; updated_at: string; message_count: number }[] }
+  | { type: "conversation.response"; session_id: string; messages: unknown[] }
   | { type: "project.switched"; session_id: string; name: string; path: string }
   | { type: "trace.response"; session_id: string; events: unknown[] }
   | { type: "error"; error: string; session_id?: string }
@@ -116,15 +118,7 @@ let latestMemory: unknown[] | null = null;
 let latestTrace: unknown[] | null = null;
 
 function getOrCreateSessionId(): string {
-  const existingSessionId = window.localStorage.getItem(sessionStorageKey);
-  if (existingSessionId) {
-    return existingSessionId;
-  }
-
-  const nextSessionId =
-    window.crypto && "randomUUID" in window.crypto
-      ? window.crypto.randomUUID()
-      : `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const nextSessionId = createSessionId();
   window.localStorage.setItem(sessionStorageKey, nextSessionId);
   return nextSessionId;
 }
@@ -242,6 +236,11 @@ function setActiveConversation(nextSessionId: string): void {
   renderConversationList();
   renderProjectList();
   renderCurrentConversation();
+
+  const conversation = conversations.find((c) => c.id === nextSessionId);
+  if (conversation && conversation.messages.length === 0) {
+    websocket?.send(JSON.stringify({ type: "conversation.get", session_id: nextSessionId }));
+  }
 }
 
 function startNewConversation(): void {
@@ -270,6 +269,28 @@ function clearConversations(): void {
   saveConversations();
   renderConversationList();
   renderCurrentConversation();
+}
+
+function mergeServerConversations(
+  serverSessions: { id: string; title: string; updated_at: string; message_count: number }[],
+): void {
+  const localIds = new Set(conversations.map((c) => c.id));
+
+  for (const session of serverSessions) {
+    if (localIds.has(session.id)) {
+      continue;
+    }
+
+    conversations.push({
+      id: session.id,
+      title: session.title || "新对话",
+      updatedAt: new Date(session.updated_at).getTime(),
+      messages: [],
+    });
+  }
+
+  saveConversations();
+  renderConversationList();
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -439,7 +460,7 @@ function renderMessage(message: StoredMessage): void {
   const bubble = document.createElement("div");
   bubble.className = "bubble";
 
-  bubble.innerHTML = renderMarkdownLite(message.text);
+  bubble.innerHTML = renderMarkdown(message.text);
   addCodeCopyButtons(bubble);
 
   if (message.retryText) {
@@ -690,6 +711,7 @@ function formatAgentEvent(message: Extract<GatewayMessage, { type: "agent.event"
 function handleGatewayMessage(message: GatewayMessage): void {
   if (message.type === "gateway.ready") {
     setGatewayState("Gateway connected", "connected");
+    websocket?.send(JSON.stringify({ type: "conversation.list" }));
     flushPendingMessage();
     return;
   }
@@ -717,6 +739,31 @@ function handleGatewayMessage(message: GatewayMessage): void {
   if (message.type === "memory.response") {
     latestMemory = message.messages;
     renderDetails();
+    return;
+  }
+
+  if (message.type === "conversation.list.response") {
+    mergeServerConversations(message.conversations);
+    return;
+  }
+
+  if (message.type === "conversation.response") {
+    const existing = conversations.find((c) => c.id === message.session_id);
+    if (existing) {
+      existing.messages = (message.messages as { role: string; content: string }[]).map(
+        (msg) =>
+          ({
+            role: msg.role,
+            text: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content),
+          }) as StoredMessage,
+      );
+      existing.updatedAt = Date.now();
+      saveConversations();
+      renderConversationList();
+      if (sessionId === message.session_id) {
+        renderCurrentConversation();
+      }
+    }
     return;
   }
 

@@ -8,7 +8,7 @@ from agent.trace.trace import make_session_id
 
 def response_to_text(response) -> str:
     texts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
-    return "\n".join(texts).strip() or str(response.content)
+    return "\n".join(texts).strip()
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Chat with the agent from the CLI.")

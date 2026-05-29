@@ -105,10 +105,10 @@ def test_agent_loop_loads_and_persists_session_memory(tmp_path: Path) -> None:
     assert sent_messages[1] == {"role": "user", "content": "current"}
     assert saved_messages[0] == {"role": "user", "content": "previous"}
     assert saved_messages[1] == {"role": "user", "content": "current"}
-    assert saved_messages[2]["role"] == "assistant"
+    assert saved_messages[2] == {"role": "assistant", "content": "done"}
 
 
-def test_agent_loop_persists_tool_results_to_session_memory(tmp_path: Path) -> None:
+def test_agent_loop_does_not_persist_tool_results_to_session_memory(tmp_path: Path) -> None:
     (tmp_path / "README.md").write_text("# CodeAnalyst\n", encoding="utf-8")
     store = MemoryStore(tmp_path / ".memory")
     fake_client = FakeLLMClient(
@@ -132,20 +132,11 @@ def test_agent_loop_persists_tool_results_to_session_memory(tmp_path: Path) -> N
     saved_messages = store.load_messages("tool-memory-session")
 
     assert saved_messages[0] == {"role": "user", "content": "read README"}
-    assert saved_messages[1]["role"] == "assistant"
-    assert saved_messages[2] == {
-        "role": "user",
-        "content": [
-            {
-                "type": "tool_result",
-                "tool_use_id": "tool-1",
-                "content": "# CodeAnalyst",
-            }
-        ],
-    }
+    assert saved_messages[1] == {"role": "assistant", "content": "read it"}
+    assert len(saved_messages) == 2
 
 
-def test_agent_loop_serializes_non_json_sdk_blocks_before_persisting_memory(tmp_path: Path) -> None:
+def test_agent_loop_only_persists_text_not_thinking_blocks(tmp_path: Path) -> None:
     store = MemoryStore(tmp_path / ".memory")
     fake_client = FakeLLMClient(
         [
@@ -171,15 +162,5 @@ def test_agent_loop_serializes_non_json_sdk_blocks_before_persisting_memory(tmp_
 
     assert saved_messages[1] == {
         "role": "assistant",
-        "content": [
-            {
-                "type": "thinking",
-                "thinking": "private reasoning",
-                "signature": "signed",
-            },
-            {
-                "type": "text",
-                "text": "visible answer",
-            },
-        ],
+        "content": "visible answer",
     }

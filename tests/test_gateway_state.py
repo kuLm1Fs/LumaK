@@ -69,3 +69,26 @@ def test_gateway_state_project_detail_uses_pyproject_name(tmp_path: Path) -> Non
             "active": True,
         }
     ]
+
+
+def test_workspace_name_reads_package_json_first(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text("{\"name\": \"my-app\"}\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = \"ignored\"\n", encoding="utf-8")
+
+    assert workspace_name(tmp_path) == "my-app"
+
+
+def test_workspace_name_reads_cargo_toml(tmp_path: Path) -> None:
+    (tmp_path / "Cargo.toml").write_text("[package]\nname = \"rust-crate\"\n", encoding="utf-8")
+
+    assert workspace_name(tmp_path) == "rust-crate"
+
+
+def test_workspace_name_reads_gomod(tmp_path: Path) -> None:
+    (tmp_path / "go.mod").write_text("module github.com/user/my-project\n\ngo 1.22\n", encoding="utf-8")
+
+    assert workspace_name(tmp_path) == "github.com/user/my-project"
+
+
+def test_workspace_name_falls_back_to_directory_name(tmp_path: Path) -> None:
+    assert workspace_name(tmp_path) == tmp_path.name

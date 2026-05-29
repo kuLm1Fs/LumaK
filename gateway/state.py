@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 def resolve_workspace_path(raw_path: str) -> Path:
@@ -18,16 +19,80 @@ def workspace_roots(workspace: Path) -> tuple[Path, Path, Path]:
     return workspace / ".memory", workspace / ".trace", workspace / ".skills"
 
 
-def workspace_name(workspace: Path) -> str:
+ManifestReader = Callable[[Path], str | None]
+
+
+def _read_pyproject(workspace: Path) -> str | None:
     pyproject_path = workspace / "pyproject.toml"
-    if pyproject_path.exists():
-        try:
-            pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-            name = pyproject.get("project", {}).get("name")
-            if isinstance(name, str) and name.strip():
-                return name.strip()
-        except (OSError, tomllib.TOMLDecodeError):
-            pass
+    if not pyproject_path.exists():
+        return None
+    try:
+        pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        name = pyproject.get("project", {}).get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    except (OSError, tomllib.TOMLDecodeError):
+        pass
+    return None
+
+
+def _read_cargo(workspace: Path) -> str | None:
+    cargo_path = workspace / "Cargo.toml"
+    if not cargo_path.exists():
+        return None
+    try:
+        cargo = tomllib.loads(cargo_path.read_text(encoding="utf-8"))
+        name = cargo.get("package", {}).get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    except (OSError, tomllib.TOMLDecodeError):
+        pass
+    return None
+
+
+def _read_package_json(workspace: Path) -> str | None:
+    package_json_path = workspace / "package.json"
+    if not package_json_path.exists():
+        return None
+    try:
+        package = json.loads(package_json_path.read_text(encoding="utf-8"))
+        name = package.get("name")
+        if isinstance(name, str) and name.strip() and not name.startswith("."):
+            return name.strip()
+    except (OSError, json.JSONDecodeError):
+        pass
+    return None
+
+
+def _read_gomod(workspace: Path) -> str | None:
+    gomod_path = workspace / "go.mod"
+    if not gomod_path.exists():
+        return None
+    try:
+        for line in gomod_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("module "):
+                name = stripped.removeprefix("module ").strip()
+                if name:
+                    return name
+    except OSError:
+        pass
+    return None
+
+
+MANIFEST_READERS: list[ManifestReader] = [
+    _read_package_json,
+    _read_pyproject,
+    _read_cargo,
+    _read_gomod,
+]
+
+
+def workspace_name(workspace: Path) -> str:
+    for reader in MANIFEST_READERS:
+        name = reader(workspace)
+        if name is not None:
+            return name
     return workspace.name
 
 

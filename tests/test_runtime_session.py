@@ -33,6 +33,21 @@ def test_prepare_session_messages_loads_history_and_persists_incoming(tmp_path) 
     assert store.load_messages("s1") == prepared
 
 
+def test_prepare_session_messages_dedup_duplicate_incoming(tmp_path) -> None:
+    store = MemoryStore(tmp_path / ".memory")
+    store.append_message("s1", {"role": "user", "content": "hello"})
+    incoming = [{"role": "user", "content": "hello"}]
+
+    prepared = prepare_session_messages(
+        incoming,
+        session_id="s1",
+        memory_store=store,
+    )
+
+    assert prepared == [{"role": "user", "content": "hello"}]
+    assert store.load_messages("s1") == prepared
+
+
 def test_append_session_message_updates_memory_when_available(tmp_path) -> None:
     store = MemoryStore(tmp_path / ".memory")
     messages = []

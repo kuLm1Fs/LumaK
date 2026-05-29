@@ -78,5 +78,6 @@ class MemoryStore:
                 for item in content
                 if isinstance(item, dict) and item.get("type") == "text"
             ]
-            return " ".join(part for part in text_parts if part).strip()
-        return str(content).strip()
+            result = " ".join(part for part in text_parts if part).strip()
+            return result if result else "(工具调用)"
+        return "(工具调用)"

@@ -4,6 +4,7 @@ from agent.tools.registry import TOOLS, execute_tool
 from agent.trace.trace import make_session_id, AgentTrace, TraceHook
 from agent.runtime.hooks import Hook, HookManager
 from agent.memory.store import MemoryStore
+from agent.runtime.session import prepare_session_messages
 from agent.skills import SkillSelector, SkillStore, render_skill_system_prompt
 from agent.skills.selector import SkillSelection
 import time
@@ -19,7 +20,7 @@ def get_default_client():
 
 def response_to_text(response) -> str:
     texts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
-    return "\n".join(texts).strip() or str(response.content)
+    return "\n".join(texts).strip()
 
 def make_json_safe(value: Any) -> Any:
     if value is None or isinstance(value, (str, int, float, bool)):
@@ -68,15 +69,14 @@ def emit_hook(
         workspace=str(workspace),
     )
 
-def append_message(
-    messages: list,
-    message: dict,
-    *,
-    memory_store: MemoryStore | None,
-    session_id: str,) -> None:
-    messages.append(message)
-    if memory_store:
-        memory_store.append_message(session_id, message)
+BASE_PROMPT_PATH = ROOT_DIR / "prompts" / "system.md"
+
+
+def _load_base_prompt() -> str:
+    try:
+        return BASE_PROMPT_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
 
 
 def select_skills_for_messages(
@@ -93,7 +93,7 @@ def select_skills_for_messages(
 
     if not skills_root:
         return selection, ""
-    
+
     user_text = "\n".join(
         str(message.get("content", ""))
         for message in messages
@@ -150,16 +150,20 @@ def agent_loop(
     hook_manager = HookManager(active_hooks)
     incoming_messages = list(messages)
 
-    selection, system_prompt = select_skills_for_messages(
+    selection, skill_prompt = select_skills_for_messages(
         messages=incoming_messages,
         skills_root=skills_root
     )
+    base_prompt = _load_base_prompt()
+    if base_prompt and skill_prompt:
+        system_prompt = f"{base_prompt}\n\n{skill_prompt}"
+    else:
+        system_prompt = base_prompt or skill_prompt
 
     if memory_store:
-        persisted_messages = memory_store.load_messages(session_id)
-        for message in incoming_messages:
-            memory_store.append_message(session_id, message)
-        messages = [*persisted_messages, *incoming_messages]
+        messages = prepare_session_messages(
+            messages, session_id=session_id, memory_store=memory_store,
+        )
 
     # start hook
     emit_hook(
@@ -192,6 +196,7 @@ def agent_loop(
                 workspace=workspace,
             )
 
+    last_response = None
     for i in range(max_steps):
         emit_hook(
             hook_manager,
@@ -226,6 +231,7 @@ def agent_loop(
 
 
         response = llm_client.messages.create(**request_kwargs)
+        last_response = response
 
         request_elapsed = (time.perf_counter() - request_start) * 1000
         emit_hook(
@@ -249,12 +255,12 @@ def agent_loop(
             workspace=workspace,
         )
 
-        append_message(
-            messages,
-            {"role": "assistant", "content": serialize_content_blocks(response.content)},
-            memory_store=memory_store,
-            session_id=session_id,
-        )
+        full_content = serialize_content_blocks(response.content)
+        messages.append({"role": "assistant", "content": full_content})
+        if memory_store and response.stop_reason != "tool_use":
+            text = response_to_text(response)
+            if text.strip():
+                memory_store.append_message(session_id, {"role": "assistant", "content": text})
 
         if response.stop_reason != "tool_use" :
             final_text = response_to_text(response)
@@ -307,12 +313,7 @@ def agent_loop(
                 print(output[:200])
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
 
-        append_message(
-            messages,
-            {"role": "user", "content": results},
-            memory_store=memory_store,
-            session_id=session_id,
-        )
+        messages.append({"role": "user", "content": results})
 
     emit_hook(
         hook_manager,
@@ -321,4 +322,4 @@ def agent_loop(
         session_id=session_id,
         workspace=workspace,
     )
-    return messages
+    return last_response or messages

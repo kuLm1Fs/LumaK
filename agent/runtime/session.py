@@ -3,6 +3,16 @@ from __future__ import annotations
 from agent.memory.store import MemoryStore
 
 
+def _is_duplicate_of_last(persisted: list, message: dict) -> bool:
+    if not persisted:
+        return False
+    last = persisted[-1]
+    return (
+        last.get("role") == message.get("role")
+        and last.get("content") == message.get("content")
+    )
+
+
 def prepare_session_messages(
     incoming_messages: list,
     *,
@@ -15,8 +25,10 @@ def prepare_session_messages(
     persisted_messages = memory_store.load_messages(session_id)
     incoming = list(incoming_messages)
     for message in incoming:
-        memory_store.append_message(session_id, message)
-    return [*persisted_messages, *incoming]
+        if not _is_duplicate_of_last(persisted_messages, message):
+            memory_store.append_message(session_id, message)
+            persisted_messages.append(message)
+    return persisted_messages
 
 
 def append_session_message(

@@ -12,6 +12,10 @@
     "test": "tsc --outDir dist && node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "dompurify": "^3.2.6",
+    "marked": "^15.0.12"
+  },
   "devDependencies": {
     "typescript": "^5.8.3",
     "vite": "^7.2.4"

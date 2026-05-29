@@ -182,57 +182,6 @@ export function buildAttachmentPrompt(text: string, attachments: AttachmentText[
   return parts.join("\n");
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function renderInlineMarkdown(value: string): string {
-  return escapeHtml(value)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-}
-
-function renderParagraph(block: string): string {
-  const lines = block.split("\n");
-  if (lines.every((line) => line.trim().startsWith("- "))) {
-    const items = lines
-      .map((line) => `<li>${renderInlineMarkdown(line.trim().slice(2))}</li>`)
-      .join("");
-    return `<ul>${items}</ul>`;
-  }
-
-  return `<p>${renderInlineMarkdown(block).replaceAll("\n", "<br>")}</p>`;
-}
-
-export function renderMarkdownLite(markdown: string): string {
-  const html: string[] = [];
-  const fencePattern = /```([A-Za-z0-9_-]*)\n([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = fencePattern.exec(markdown)) !== null) {
-    const before = markdown.slice(lastIndex, match.index).trim();
-    if (before) {
-      html.push(...before.split(/\n{2,}/).filter(Boolean).map(renderParagraph));
-    }
-
-    const language = match[1] || "text";
-    const code = match[2]?.replace(/\n$/, "") ?? "";
-    html.push(
-      `<pre class="code-block language-${escapeHtml(language)}"><code>${escapeHtml(code)}</code></pre>`,
-    );
-    lastIndex = fencePattern.lastIndex;
-  }
-
-  const after = markdown.slice(lastIndex).trim();
-  if (after) {
-    html.push(...after.split(/\n{2,}/).filter(Boolean).map(renderParagraph));
-  }
-
-  return html.join("");
-}
+// Re-export the full markdown renderer from the dedicated module
+export { renderMarkdown, addCodeCopyButtons } from "./markdown";
+export { createMarkdownRenderer } from "./markdown";

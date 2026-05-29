@@ -5,7 +5,7 @@ from pathlib import Path
 import difflib
 
 WORKDIR = Path.cwd().resolve()
-SKIPPED_DIRS = {".git", ".venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+SKIPPED_DIRS = {".git", ".venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", "node_modules"}
 
 
 def _workspace_root(workspace: Path | str | None = None) -> Path:
@@ -157,23 +157,31 @@ def run_safe_edit(
         return f"Error: IOError: {e}"
 
 
-def run_glob(pattern: str, limit: int = 200, workspace: Path | str | None = None) -> str:
+def run_glob(
+    pattern: str,
+    limit: int = 200,
+    workspace: Path | str | None = None,
+    timeout_seconds: float = 8.0,
+) -> str:
     try:
         if limit <= 0:
             return "Error: ValidationError: limit must be greater than 0"
 
         root = _workspace_root(workspace)
         pattern = _validate_glob_pattern(pattern)
+        deadline = time.monotonic() + timeout_seconds
         results = []
         for match in root.glob(pattern):
+            if time.monotonic() > deadline:
+                results.append(f"... glob timeout after {timeout_seconds:.1f}s")
+                break
             if len(results) >= limit:
+                results.append(f"... result limit reached ({limit})")
                 break
             if not match.resolve().is_relative_to(root) or _is_skipped(match, root):
                 continue
             results.append(str(match.relative_to(root)))
 
-        if len(results) >= limit:
-            results.append(f"... result limit reached ({limit})")
         return "\n".join(results) if results else "(no matches)"
     except ValueError as e:
         return f"Error: ValidationError: {e}"
