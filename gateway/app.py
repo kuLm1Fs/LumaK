@@ -153,12 +153,25 @@ async def run_chat(websocket: ServerConnection, message: dict[str, Any]) -> None
             [{"role": "user", "content": prompt}],
         )
 
+        answer = response_to_text(response)
+        if not answer:
+            blocks = getattr(response, "content", [])
+            tool_uses = [b for b in blocks if getattr(b, "type", None) == "tool_use"]
+            text_blocks = [b for b in blocks if getattr(b, "type", None) == "text"]
+            if tool_uses and not text_blocks:
+                tool_names = ", ".join(getattr(b, "name", "?") for b in tool_uses)
+                answer = f"已调用工具：{tool_names}"
+            elif getattr(response, "stop_reason", None) == "max_tokens":
+                answer = "响应被截断（超出 max_tokens），请重试或增加 max_tokens。"
+            else:
+                answer = "Agent 已完成，但没有返回文本。"
+
         await send_json(
             websocket,
             {
                 "type": "chat.response",
                 "session_id": session_id,
-                "answer": response_to_text(response),
+                "answer": answer,
             },
         )
         elapsed = time.monotonic() - started_at
