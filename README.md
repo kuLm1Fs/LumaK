@@ -2,6 +2,10 @@
   <img src="web/assets/lumak-logo.png" alt="LumaK logo" width="72" />
 </p>
 
+<p align="center">
+  <a href="README.zh.md">中文</a> · <strong>English</strong>
+</p>
+
 # LumaK
 
 **Local codebase understanding and safe-editing agent runtime.** LumaK operates inside a restricted workspace, using LLM tool-calling to read, search, analyze, and modify code. It's an engineering tool, not a general chatbot — the focus is on making the agent loop robust: tool selection, path constraints, error handling, tracing, session memory, skill injection, and functional CLI / TUI / Web UI entry points.

@@ -2,6 +2,10 @@
   <img src="web/assets/lumak-logo.png" alt="LumaK logo" width="72" />
 </p>
 
+<p align="center">
+  <strong>中文</strong> · <a href="README.md">English</a>
+</p>
+
 # LumaK
 
 **本地优先的代码库理解与安全修改 Agent 运行时。** LumaK 在受限 workspace 内通过 LLM tool-calling 读取、搜索、分析和修改代码。这是一个工程工具，而非通用聊天机器人——核心目标是让 agent 闭环足够健壮：工具选择、路径约束、错误处理、trace、会话记忆、技能注入，以及可用的 CLI / TUI / Web UI 入口。
