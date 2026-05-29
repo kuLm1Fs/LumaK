@@ -22,6 +22,8 @@ def _validate_pattern(pattern: str) -> str:
 def _display_signature(symbol: Symbol) -> str:
     if symbol.kind == "class":
         return symbol.signature
+    if symbol.signature.startswith("async def "):
+        return symbol.signature.removeprefix("async def ")
     if symbol.signature.startswith("def "):
         return symbol.signature.removeprefix("def ")
     return symbol.signature
@@ -29,9 +31,15 @@ def _display_signature(symbol: Symbol) -> str:
 
 def _format_symbol(symbol: Symbol) -> str:
     end = f"-{symbol.end_line}" if symbol.end_line and symbol.end_line != symbol.line else ""
-    if symbol.kind == "class":
-        return f"  {symbol.signature} lines {symbol.line}{end}"
-    return f"  {symbol.kind} {_display_signature(symbol)} lines {symbol.line}{end}"
+    header = f"  {symbol.signature} lines {symbol.line}{end}"
+    parts = [header]
+    if symbol.decorators:
+        for dec in symbol.decorators:
+            parts.append(f"    @{dec}")
+    if symbol.docstring:
+        doc = symbol.docstring.strip().split("\n")[0]
+        parts.append(f"    {doc}")
+    return "\n".join(parts)
 
 
 def _format_outline(outline: FileOutline) -> str:

@@ -716,6 +716,9 @@ function formatAgentEvent(message: Extract<GatewayMessage, { type: "agent.event"
       return `准备调用工具：${String(payload.tool_name ?? "unknown")}`;
     case "tool.after": {
       const toolName = String(payload.tool_name ?? "unknown");
+      if (payload.dedup) {
+        return `工具调用已跳过（重复）：${toolName}`;
+      }
       return payload.success === false ? `工具调用失败：${toolName}` : `工具调用完成：${toolName}`;
     }
     case "session.end": {

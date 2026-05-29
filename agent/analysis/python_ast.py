@@ -14,6 +14,7 @@ class Symbol:
     end_line: int | None
     signature: str
     docstring: str | None
+    decorators: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,10 @@ def _relative_path(path: Path, workspace: Path) -> str:
     return str(path.resolve().relative_to(workspace.resolve()))
 
 
+def _decorator_names(node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) -> list[str]:
+    return [ast.unparse(d) for d in node.decorator_list]
+
+
 def _import_name(node: ast.ImportFrom, alias: ast.alias) -> str:
     module = "." * node.level + (node.module or "")
     return f"{module}.{alias.name}" if module else alias.name
@@ -97,6 +102,7 @@ def parse_python_file(path: Path, workspace: Path) -> FileOutline:
                     end_line=getattr(node, "end_lineno", None),
                     signature=f"class {node.name}",
                     docstring=ast.get_docstring(node),
+                    decorators=_decorator_names(node),
                 )
             )
             for child in node.body:
@@ -110,6 +116,7 @@ def parse_python_file(path: Path, workspace: Path) -> FileOutline:
                             end_line=getattr(child, "end_lineno", None),
                             signature=build_signature(child),
                             docstring=ast.get_docstring(child),
+                            decorators=_decorator_names(child),
                         )
                     )
             continue
@@ -124,7 +131,24 @@ def parse_python_file(path: Path, workspace: Path) -> FileOutline:
                     end_line=getattr(node, "end_lineno", None),
                     signature=build_signature(node),
                     docstring=ast.get_docstring(node),
+                    decorators=_decorator_names(node),
                 )
             )
+            continue
+
+        if isinstance(node, ast.Assign) and node.targets:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    symbols.append(
+                        Symbol(
+                            name=target.id,
+                            kind="variable",
+                            path=relative_path,
+                            line=node.lineno,
+                            end_line=getattr(node, "end_lineno", None),
+                            signature=ast.unparse(target),
+                            docstring=None,
+                        )
+                    )
 
     return FileOutline(path=relative_path, imports=imports, symbols=symbols)

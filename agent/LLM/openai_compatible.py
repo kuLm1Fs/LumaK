@@ -77,10 +77,12 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
                 )
 
         if role == "assistant":
-            assistant_message = {
+            assistant_message: dict[str, Any] = {
                 "role": "assistant",
                 "content": "\n".join(text_parts) or None,
             }
+            if message.get("reasoning_content"):
+                assistant_message["reasoning_content"] = message["reasoning_content"]
             if tool_calls:
                 assistant_message["tool_calls"] = tool_calls
             converted.append(assistant_message)
@@ -95,6 +97,7 @@ class OpenAIResponse:
         choice = raw_response.choices[0]
         message = choice.message
         tool_calls = getattr(message, "tool_calls", None) or []
+        self.reasoning_content = getattr(message, "reasoning_content", None)
 
         if tool_calls:
             self.stop_reason = "tool_use"

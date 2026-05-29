@@ -1,12 +1,63 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any
+
+_DOTENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+
+
+def _load_env() -> None:
+    if not _DOTENV_PATH.exists():
+        print(f"[gateway] _load_env: {_DOTENV_PATH} NOT FOUND", flush=True)
+        return
+    print(f"[gateway] _load_env: reading {_DOTENV_PATH}", flush=True)
+    for line in _DOTENV_PATH.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip("\"'")
+        if key and value:
+            print(f"[gateway] _load_env: set {key}=...{value[-8:]}", flush=True)
+            os.environ[key] = value
+
+
+_load_env()
+print(f"[gateway] after _load_env: key={repr(os.getenv('DEEPSEEK_API_KEY', 'NOT SET')[-12:])}", flush=True)
 
 from agent.config import AnthropicConfig, DeepSeekConfig, MiniMaxConfig, OpenAIConfig
 from agent.LLM.anthropic_provider import AnthropicProvider
 from agent.LLM.deepseek import DeepSeekProvider
 from agent.LLM.minimax import MinimaxProvider
 from agent.LLM.openai_compatible import OpenAICompatibleProvider
+
+_ENV_MAP: dict[str, tuple[str, str, str]] = {
+    "deepseek": ("DEEPSEEK_API_KEY", "DEEPSEEK_MODEL_ID", "DEEPSEEK_BASE_URL"),
+    "anthropic": ("ANTHROPIC_API_KEY", "ANTHROPIC_MODEL_ID", "ANTHROPIC_BASE_URL"),
+    "openai": ("OPENAI_API_KEY", "OPENAI_MODEL_ID", "OPENAI_BASE_URL"),
+    "minimax": ("MINIMAX_API_KEY", "MINIMAX_MODEL_ID", "MINIMAX_BASE_URL"),
+    "custom": ("CUSTOM_API_KEY", "CUSTOM_MODEL_ID", "CUSTOM_BASE_URL"),
+}
+
+
+def _from_env(provider: str) -> dict[str, str]:
+    keys = _ENV_MAP.get(provider)
+    if not keys:
+        return {}
+    env_key, env_model, env_url = keys
+    result: dict[str, str] = {}
+    val = os.getenv(env_key, "").strip()
+    if val:
+        result["api_key"] = val
+    val = os.getenv(env_model, "").strip()
+    if val:
+        result["model"] = val
+    val = os.getenv(env_url, "").strip()
+    if val:
+        result["base_url"] = val
+    return result
 
 
 def build_request_llm_client(message: dict[str, Any]) -> object | None:
@@ -19,8 +70,18 @@ def build_request_llm_client(message: dict[str, Any]) -> object | None:
     model = str(raw_config.get("model", "")).strip()
     base_url = str(raw_config.get("base_url", "")).strip()
 
+    env_vals = _from_env(provider)
+    if env_vals.get("api_key"):
+        api_key = env_vals["api_key"]
+    if env_vals.get("model"):
+        model = env_vals["model"]
+    if env_vals.get("base_url"):
+        base_url = env_vals["base_url"]
+
     if not provider or not api_key or not model:
         return None
+
+    print(f"[gateway] llm client: provider={provider} model={model} key_suffix=...{api_key[-4:]}")
 
     if provider == "minimax":
         if not base_url:

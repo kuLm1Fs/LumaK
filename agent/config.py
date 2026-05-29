@@ -4,9 +4,10 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 load_dotenv()
+load_dotenv(find_dotenv(usecwd=False))  # fallback: search from project root upward
 
 
 def _missing_env(names_and_values: tuple[tuple[str, str], ...]) -> list[str]:

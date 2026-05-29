@@ -8,6 +8,7 @@ from agent.runtime.session import prepare_session_messages
 from agent.runtime.rollback import SessionRollback, create_rollback_hook
 from agent.skills import SkillSelector, SkillStore, render_skill_system_prompt
 from agent.skills.selector import SkillSelection
+import json
 import time
 
 
@@ -78,6 +79,45 @@ def _load_base_prompt() -> str:
         return BASE_PROMPT_PATH.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+
+def _truncate_messages(
+    messages: list,
+    max_context_messages: int = 10,
+) -> list:
+    if len(messages) <= max_context_messages:
+        return messages
+    first = messages[:1]
+    last = messages[-(max_context_messages - 1):]
+
+    known_ids: set[str] = set()
+    for m in first + last:
+        if m.get("role") == "assistant":
+            content = m.get("content", [])
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "tool_use":
+                        bid = block.get("id")
+                        if bid:
+                            known_ids.add(bid)
+
+    cleaned: list = []
+    for m in last:
+        if m.get("role") == "user":
+            content = m.get("content", [])
+            if isinstance(content, list):
+                filtered = [
+                    b for b in content
+                    if not (isinstance(b, dict) and b.get("type") == "tool_result" and b.get("tool_use_id") not in known_ids)
+                ]
+                if filtered:
+                    cleaned.append({"role": "user", "content": filtered})
+            else:
+                cleaned.append(m)
+        else:
+            cleaned.append(m)
+
+    return first + cleaned
 
 
 def select_skills_for_messages(
@@ -200,7 +240,14 @@ def agent_loop(
             )
 
     last_response = None
-    for i in range(max_steps):
+    tool_cache: dict[str, str] = {}
+    consecutive_dedup = 0
+    consecutive_tool_only = 0
+    MAX_CONSECUTIVE_TOOL_ONLY = 4
+    force_text_response = False
+    i = 0
+    while i < max_steps:
+        i += 1
         emit_hook(
             hook_manager,
             "loop.iteration.start",
@@ -226,14 +273,51 @@ def agent_loop(
         request_kwargs = {
             "model": llm_client.default_model,
             "max_tokens": max_tokens,
-            "messages": messages,
-            "tools": TOOLS,
+            "messages": _truncate_messages(messages),
         }
+        if not force_text_response:
+            request_kwargs["tools"] = TOOLS
+        else:
+            force_text_response = False
         if system_prompt:
-            request_kwargs["system"] = system_prompt
+            request_kwargs["messages"] = [{"role": "system", "content": system_prompt}] + request_kwargs["messages"]
 
-
-        response = llm_client.messages.create(**request_kwargs)
+        response = None
+        for ctx_limit in [10, 6, 4]:
+            if ctx_limit != 10:
+                request_kwargs["messages"] = _truncate_messages(messages, ctx_limit)
+            try:
+                response = llm_client.messages.create(**request_kwargs)
+                break
+            except Exception as exc:
+                err_str = str(exc).lower()
+                if any(word in err_str for word in ("context length", "too many tokens", "maximum context", "context window", "tool result")):
+                    print(f"[retry] LLM call failed, retrying with ctx_limit={ctx_limit}: {exc}")
+                else:
+                    print(f"[error] LLM call failed: {exc}")
+                    emit_hook(
+                        hook_manager,
+                        "session.end",
+                        {
+                            "final_output": f"模型调用失败：{exc}",
+                            "stop_reason": "error",
+                        },
+                        session_id=session_id,
+                        workspace=workspace,
+                    )
+                    return last_response or messages
+        if response is None:
+            emit_hook(
+                hook_manager,
+                "session.end",
+                {
+                    "final_output": "模型多次调用失败，请检查模型配置或稍后重试。",
+                    "stop_reason": "error",
+                },
+                session_id=session_id,
+                workspace=workspace,
+            )
+            return last_response or messages
         last_response = response
 
         request_elapsed = (time.perf_counter() - request_start) * 1000
@@ -259,13 +343,25 @@ def agent_loop(
         )
 
         full_content = serialize_content_blocks(response.content)
-        messages.append({"role": "assistant", "content": full_content})
+        content_no_thinking = [b for b in full_content if b.get("type") != "thinking"]
+        msg: dict[str, Any] = {"role": "assistant", "content": content_no_thinking}
+        reasoning = getattr(response, "reasoning_content", None)
+        if reasoning:
+            msg["reasoning_content"] = reasoning
+        messages.append(msg)
+        if response.stop_reason == "tool_use":
+            rt = response_to_text(response)
+            if not rt:
+                consecutive_tool_only += 1
+            else:
+                consecutive_tool_only = 0
+
         if memory_store and response.stop_reason != "tool_use":
             text = response_to_text(response)
             if text.strip():
                 memory_store.append_message(session_id, {"role": "assistant", "content": text})
 
-        if response.stop_reason != "tool_use" :
+        if response.stop_reason != "tool_use":
             final_text = response_to_text(response)
             emit_hook(
                 hook_manager,
@@ -279,8 +375,11 @@ def agent_loop(
             )
             return response
         results = []
+        tool_use_count = 0
+        dedup_count = 0
         for block in response.content:
             if block.type == "tool_use":
+                tool_use_count += 1
                 emit_hook(
                     hook_manager,
                     "tool.before",
@@ -292,6 +391,32 @@ def agent_loop(
                     session_id=session_id,
                     workspace=workspace,
                 )
+                cache_key = f"{block.name}:{json.dumps(block.input, sort_keys=True)}"
+                cached = tool_cache.get(cache_key)
+                if cached is not None:
+                    dedup_count += 1
+                    tool_start = time.perf_counter()
+                    output = cached
+                    success = True
+                    tool_elapsed = (time.perf_counter() - tool_start) * 1000
+                    emit_hook(
+                        hook_manager,
+                        "tool.after",
+                        {
+                            "tool_name": block.name,
+                            "tool_input": block.input,
+                            "tool_use_id": block.id,
+                            "output": output,
+                            "success": success,
+                            "duration_ms": tool_elapsed,
+                            "dedup": True,
+                        },
+                        session_id=session_id,
+                        workspace=workspace,
+                    )
+                    print(f"[dedup] {block.name} → cached result ({len(output)} chars)")
+                    results.append({"type": "tool_result", "tool_use_id": block.id, "content": output[:10000]})
+                    continue
                 tool_start = time.perf_counter()
                 success = True
                 output = ""
@@ -302,6 +427,8 @@ def agent_loop(
                     success = False
                 finally:
                     tool_elapsed = (time.perf_counter() - tool_start) * 1000
+                if success:
+                    tool_cache[cache_key] = output
                 emit_hook(
                     hook_manager,
                     "tool.after",
@@ -317,9 +444,41 @@ def agent_loop(
                     workspace=workspace,
                 )
                 print(output[:200])
-                results.append({"type": "tool_result", "tool_use_id": block.id, "content": output})
+                results.append({"type": "tool_result", "tool_use_id": block.id, "content": output[:10000]})
+
+        if tool_use_count > 0 and tool_use_count == dedup_count:
+            consecutive_dedup += 1
+            print(f"[dedup] all {tool_use_count} tool(s) were cached (x{consecutive_dedup}), not counting iteration")
+            if consecutive_dedup >= 5:
+                print("[dedup] too many consecutive dedup rounds, stopping")
+                emit_hook(
+                    hook_manager,
+                    "session.end",
+                    {
+                        "final_output": "模型陷入重复调用，请重试或使用其他模型。",
+                        "stop_reason": "error",
+                    },
+                    session_id=session_id,
+                    workspace=workspace,
+                )
+                return last_response or messages
+            i -= 1
+        else:
+            consecutive_dedup = 0
 
         messages.append({"role": "user", "content": results})
+
+        if consecutive_tool_only >= MAX_CONSECUTIVE_TOOL_ONLY:
+            print(f"[force] {consecutive_tool_only} consecutive tool-only rounds, forcing text response")
+            messages.append({
+                "role": "user",
+                "content": (
+                    "你已经进行了多次工具调用，获得了足够的上下文信息。"
+                    "请直接输出最终回答，不要再调用任何工具。"
+                ),
+            })
+            consecutive_tool_only = 0
+            force_text_response = True
 
     emit_hook(
         hook_manager,
