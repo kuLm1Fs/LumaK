@@ -5,6 +5,7 @@ from agent.trace.trace import make_session_id, AgentTrace, TraceHook
 from agent.runtime.hooks import Hook, HookManager
 from agent.memory.store import MemoryStore
 from agent.runtime.session import prepare_session_messages
+from agent.runtime.rollback import SessionRollback, create_rollback_hook
 from agent.skills import SkillSelector, SkillStore, render_skill_system_prompt
 from agent.skills.selector import SkillSelection
 import time
@@ -147,6 +148,8 @@ def agent_loop(
     if trace_enabled:
         trace = AgentTrace(workspace=workspace, session_id=session_id)
         active_hooks.insert(0, TraceHook(trace, payload_limit=trace_payload_limit))
+    rollback = SessionRollback(workspace)
+    active_hooks.append(create_rollback_hook(rollback))
     hook_manager = HookManager(active_hooks)
     incoming_messages = list(messages)
 

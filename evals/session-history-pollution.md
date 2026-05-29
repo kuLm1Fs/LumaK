@@ -107,6 +107,39 @@ All 88 tests pass.
 
 ---
 
+## Post-Fix Feature: File Rollback on Failure
+
+After the core fixes, a rollback mechanism was added to revert file changes when the agent fails to complete its task.
+
+### Motivation
+
+If `agent_loop` exhausts `max_steps` (all iterations produce `tool_use`, no final `end_turn` with text), partial file modifications would be left in the workspace with no way to undo them.
+
+### Implementation
+
+**File:** `agent/runtime/rollback.py` (new)
+
+`SessionRollback` tracks files modified by write/edit tools during a session:
+- On `tool.before`: snapshots the file's original content (or marks it as non-existent)
+- On `session.end` with empty or "max steps reached" output: restores all snapshots
+- On `session.end` with real output: discards snapshots (changes are committed)
+
+**File:** `agent/runtime/loop.py`
+
+- Inserts rollback hook into `active_hooks` on every `agent_loop` call
+
+### Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Hook-based, not tool-wrapping | Hooks already exist in the event pipeline; minimal coupling |
+| Snapshot on `tool.before` | File is still in original state (tool hasn't executed yet) |
+| Skip `safe_edit preview=True` | Preview doesn't modify the file |
+| One snapshot per file path | Later edits to same file revert to original, not intermediate state |
+| Rollback prints summary | `stdout` message visible in trace/log |
+
+---
+
 ## Outcome
 
 | Before | After |
@@ -117,3 +150,4 @@ All 88 tests pass.
 | `glob('**/*')` traverses `node_modules`, hangs | Excluded + 8s timeout |
 | Raw `[ThinkingBlock(...)]` appears as answer | Empty answer caught with meaningful fallback |
 | Tool-only responses show "没有返回文本" | Shows "已调用工具：{name}" |
+| Agent fails mid-way, partial edits left behind | All file changes auto-reverted on failure |
